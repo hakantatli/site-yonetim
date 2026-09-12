@@ -1,0 +1,96 @@
+services:
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL 16
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: site-yonetim-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-site_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-site_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-site_yonetim}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-site_user} -d ${POSTGRES_DB:-site_yonetim}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # pgAdmin 4  (sadece geliştirme ortamında kullan)
+  # http://localhost:5050
+  # ─────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: site-yonetim-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools  # sadece: docker compose --profile tools up
+
+  # ─────────────────────────────────────────────
+  # Go Backend  (air ile hot-reload)
+  # http://localhost:8080
+  # ─────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: site-yonetim-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-site_user}:${POSTGRES_PASSWORD:-site_pass}@postgres:5432/${POSTGRES_DB:-site_yonetim}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      JWT_ACCESS_TTL_MINUTES: ${JWT_ACCESS_TTL_MINUTES:-15}
+      JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-7}
+      PORT: ${PORT:-8080}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - app  # sadece: docker compose --profile app up
+
+  # ─────────────────────────────────────────────
+  # React Frontend  (Vite dev server)
+  # http://localhost:5173
+  # ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: site-yonetim-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules    # node_modules host'a taşmaz
+    depends_on:
+      - backend
+    profiles:
+      - app  # sadece: docker compose --profile app up
+
+volumes:
+  postgres_data:
+  pgadmin_data:
