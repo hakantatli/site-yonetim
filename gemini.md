@@ -37,11 +37,11 @@
 
 #### 2. Giriş ve Kimlik Doğrulama (Auth Modeli)
 
-- **Giriş Yöntemi:** Tüm kullanıcı tipleri için **E-posta + Şifre** kullanılır.
-- **Owner & Yönetici:** Kendi e-posta ve şifreleriyle sisteme giriş yapar.
-- **Sakinler (Ev Sahibi / Kiracı):** Yönetici sakinleri sisteme eklerken onlar adına şifre belirler ve hesaplarını oluşturur.
+- **Giriş Yöntemi:** Tüm kullanıcı tipleri için **Telefon Numarası + Şifre** kullanılır (Telefon numarası zorunlu tekil alan, e-posta opsiyoneldir; sistem telefon veya e-posta ile girişi destekler).
+- **Owner & Yönetici:** Kendi telefon numarası ve şifreleriyle sisteme giriş yapar.
+- **Sakinler (Ev Sahibi / Kiracı):** Yönetici sakinleri sisteme eklerken telefon numaralarını zorunlu girer, onlar adına şifre belirler ve hesaplarını oluşturur.
 - **Şifre Güvenliği:** Tüm şifreler **bcrypt** ile hashlenerek saklanır. Hiçbir şifre düz metin olarak tutulmaz.
-- **Token:** JWT tabanlı kimlik doğrulama (Access Token kısa süreli + Refresh Token DB'de saklanır). JWT payload'ında `user_id`, `role` ve `site_id` bilgisi bulunur; bu bilgi site izolasyonu middleware'i tarafından kullanılır.
+- **Token:** JWT tabanlı kimlik doğrulama (Access Token kısa süreli + Refresh Token DB'de saklanır). JWT payload'ında `user_id`, `phone`, `role` ve `site_id` bilgisi bulunur; bu bilgi site izolasyonu middleware'i tarafından kullanılır.
 
 ---
 
@@ -68,15 +68,17 @@
   - **Bırak:** Borç eski kiracının hesabında kalmaya devam eder.
   - **Ev Sahibine Devret:** Borç ev sahibine aktarılır.
   - **Sil:** Borç silinir (geri dönülemez).
+- **Toplu Borçlandırma:** Ortak tadilat, bakım/onarım veya demirbaş gibi sitenin tamamını ilgilendiren harcamalarda yöneticiler sitedeki tüm aktif dairelere tek seferde toplu borç tahakkuk ettirebilir. Demirbaş ve yatırım giderleri kural gereği doğrudan kat maliklerine (ev sahiplerine) yansıtılır; diğer harcamalarda muhatap seçimi (ev sahipleri veya kiracı-öncelikli) yapılabilir.
 
 ---
 
 #### 5. Tahsilat, Masraf Takibi ve Şeffaf Kasa
 
 - **Manuel Tahsilat Girişi:** Kredi kartı/sanal POS entegrasyonu olmayacak. Ödemeler nakit/havale kontrolü sonrası yönetici tarafından sisteme manuel girilir.
-- **Kısmi Ödeme Desteği:** Kat malikleri veya kiracılar borcun tamamını ödemeyebileceği için parçalı/kısmi ödeme kaydedilebilir. Kalan bakiye (`remaining = toplam_borç - yapılan_ödemeler_toplamı`) otomatik olarak borç hanesinde takip edilir.
+- **Kısmi ve Fazla Ödeme Desteği:** Kat malikleri veya kiracılar borcun tamamını ödemeyebileceği gibi (parçalı/kısmi ödeme), sehven veya yuvarlayarak borç tutarının üzerinde de (fazla ödeme) ödeme gönderebilirler. Kısmi ödemede kalan bakiye (`remaining = toplam_borç - yapılan_ödemeler_toplamı`) takip edilir; borç tutarını aşan fazla ödemelerde ise borç tamamen ödendi (`paid`) olarak işaretlenir, aradaki fazla fark otomatik olarak ödeme notuna (`[Fazla Ödeme: ₺X.XX]`) eklenir ve kalan borç bakiyesi 0 olarak kabul edilir.
 - **Kategori Bazlı Masraf Takibi:** Masraflar kategorilere ayrılarak işlenir. Kategoriler site yöneticisi tarafından kendi sitesi için özelleştirilebilir (ekle / düzenle / sil). Varsayılan kategoriler: Elektrik/Su, Temizlik, Asansör Bakımı, Personel/Görevli, Demirbaş/Onarım, Genel Giderler.
-- **Şeffaf Kasa:** Siteye ait tüm gelirler ve kategori bazlı giderler sakinlerin erişimine açık bir şekilde özet olarak sunulur (aylık gelir, aylık gider kategori bazlı, net bakiye).
+
+- **Şeffaf Kasa & Devir Bakiyesi:** Siteye ait tüm gelirler ve kategori bazlı giderler sakinlerin erişimine açık bir şekilde özet olarak sunulur (aylık gelir, aylık gider kategori bazlı, net bakiye). Yönetici, siteyi sisteme taşırken mevcut kasa/banka birikimini **Açılış / Devir Bakiyesi** (`initial_balance`) olarak sisteme girebilir ve güncelleyebilir; net kasa bakiyesi `Net Bakiye = Devir Bakiyesi + Toplam Tahsilat - Toplam Masraf` şeklinde hesaplanır. Hem yönetici hem de sakin ekranlarında bu başlangıç bakiyesi şeffafça dökümlenir.
 
 ---
 
@@ -136,6 +138,33 @@
 
 #### 10. Raporlama / PDF Ekstre
 
-- **MVP kapsamı dışındadır.**
-- Mimari raporlama katmanına hazır bırakılır; ilerleyen versiyonlarda sakin ödemesi veya aylık kasa raporu PDF olarak alınabilir.
+- **Aylık Gelir ve Gider Raporları:** Yönetici ve Owner, seçilen aya ait gelirleri (tahsilatlar) veya giderleri (masraflar) ayrı raporlar halinde listeleyip doğrudan tarayıcı üzerinden yazdırabilir veya PDF olarak kaydedebilir (`window.print()`).
+- **Format:** Numaralı liste (`No`), her bir işlem tek satır olacak şekilde: `No` -> `Tarih` -> `İşlem Detayı` (Daire/Sakin/Borç Türü/Ödeme Yöntemi veya Kategori/Açıklama/Fiş No) -> `Meblağ` (en sağda ₺ formatında).
+- **Özet:** Raporun alt kısmında dönem toplam işlem sayısı ve genel toplam tutarı yer alır (imza alanı gerekmez).
+
+---
+
+#### 11. Sayaç Okuma ve Tüketime Dayalı Borçlandırma (Su, Doğal Gaz vb.)
+
+- **Sayaç Türleri:** Sitede tüketilen kaynaklar (Su, Doğal Gaz, Isı Pay Ölçer, Elektrik vb.) birimleriyle (`m³`, `kWh` vb.) site bazında yönetici tarafından tanımlanabilir ve özelleştirilebilir. Varsayılan olarak her site için "Su (m³)" ve "Doğal Gaz (m³)" tanımlıdır.
+- **Fatura ve Ana Sayaç Girişi:**
+  - Yönetici, ilgili dönemin (YYYY-MM) faturasını işlerken fatura tutarını, ana sayacın ilk ve son endeksini girer.
+  - `Fatura Toplam Tüketimi = Ana Sayaç Son Endeks - Ana Sayaç İlk Endeks`.
+  - `Birim Fiyat = Fatura Tutarı / Fatura Toplam Tüketimi`.
+- **Daire Süzme Sayaçları:**
+  - Her daire için ilk ve son endeks girilir (bir önceki dönemin son endeksi sistem tarafından otomatik ilk endeks olarak getirilir).
+  - `Daire Tüketimi = Son Endeks - İlk Endeks`.
+  - `Daire Bireysel Tüketim Bedeli = Daire Tüketimi * Birim Fiyat`.
+- **Ortak Alan Tüketimi ve Eşit Paylaşım:**
+  - `Ortak Alan Tüketimi = Fatura Toplam Tüketimi - Tüm Dairelerin Toplam Tüketimi`.
+  - `Ortak Alan Bedeli = Ortak Alan Tüketimi * Birim Fiyat`.
+  - Ortak alan bedeli sitedeki tüm aktif dairelere eşit paylaştırılır: `Daire Başı Ortak Alan Tutarı = Ortak Alan Bedeli / Aktif Daire Sayısı`.
+- **Toplam Borç Tahakkuku ve Kuruş Dengeleme:**
+  - Her daire için `Toplam Tutar = Daire Bireysel Tüketim Bedeli + Daire Başı Ortak Alan Tutarı`.
+  - Bölme ve yuvarlama sonucu oluşabilecek kuruş farkı (genellikle 0.01 - 0.03 ₺), sistem tarafından en yüksek tüketimi yapan daireye otomatik yansıtılarak `sum(daire_borçları) == fatura_tutarı` eşitliği %100 kuruşu kuruşuna sağlanır.
+  - Borç kaydı `utility` türünde açılır ve muhatabı kiracı varsa kiracıya, daire boşsa ev sahibine tahakkuk eder.
+- **Şeffaf Görüntüleme:**
+  - **Yönetici Paneli:** Tüm geçmiş dönemlerin ana sayaç, daire sayaçları, birim maliyet ve ortak alan dökümleri listelenir ve detay modalı ile görüntülenebilir.
+  - **Sakin Paneli:** Sakinler kendi dairelerinin ilk/son endeksini, tüketimini, birim fiyatını, bina ana fatura tutarını ve ortak alandan kendilerine düşen payı şeffafça inceler.
+
 

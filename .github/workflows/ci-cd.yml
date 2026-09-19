@@ -1,0 +1,105 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================
+  # 1. Backend Test & Lint (Cloud Runner)
+  # ==========================================
+  test-backend:
+    name: Backend Tests (Go)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: backend/go.sum
+
+      - name: Run go vet
+        working-directory: ./backend
+        run: go vet ./...
+
+      - name: Run Unit Tests with Race & Coverage
+        working-directory: ./backend
+        run: go test -v -race -cover ./...
+
+  # ==========================================
+  # 2. Frontend Test, Lint & Build (Cloud Runner)
+  # ==========================================
+  test-frontend:
+    name: Frontend Tests & Build (Node)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run Linter (oxlint)
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Run Unit Tests (vitest)
+        working-directory: ./frontend
+        run: npm run test
+
+      - name: Build Production Assets
+        working-directory: ./frontend
+        run: npm run build
+
+  # ==========================================
+  # 3. Deploy (Self-Hosted Runner on Server)
+  # Only executes if all tests succeed on push to main
+  # ==========================================
+  deploy:
+    name: Deploy to Server
+    needs: [ test-backend, test-frontend ]
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy with Docker Compose
+        run: |
+          echo "🚀 Deployment starting on self-hosted runner..."
+          
+          # Pull latest images / code
+          git pull origin main || true
+          
+          # Deploy using production compose if present, otherwise default compose
+          if [ -f docker-compose.prod.yml ]; then
+            echo "📦 Running production compose..."
+            docker compose -f docker-compose.prod.yml up -d --build
+          elif [ -f docker-compose.yml ]; then
+            echo "📦 Running standard compose..."
+            docker compose up -d --build
+          else
+            echo "⚠️ No docker-compose configuration found to deploy."
+          fi
+          
+          echo "✅ Deployment finished successfully!"
