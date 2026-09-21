@@ -1,0 +1,99 @@
+services:
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL 16 (Production Database)
+  # Internal network only (not exposed to internet)
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${SITE_NAME:-binaportal}-prod-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-binaportal_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}
+      POSTGRES_DB: ${POSTGRES_DB:-binaportal}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-binaportal_user} -d ${POSTGRES_DB:-binaportal}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+  # ─────────────────────────────────────────────
+  # Go Backend (Production Multi-Stage Binary)
+  # ─────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ${SITE_NAME:-binaportal}-prod-backend
+    restart: always
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-binaportal_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-binaportal}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in production}
+      JWT_ACCESS_TTL_MINUTES: ${JWT_ACCESS_TTL_MINUTES:-15}
+      JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-7}
+      PORT: 8080
+      CORS_ALLOWED_ORIGINS: https://${SITE_URL:-binaportal.com},https://www.${SITE_URL:-binaportal.com},http://${SITE_URL:-binaportal.com},http://www.${SITE_URL:-binaportal.com}
+      INITIAL_OWNER_PHONE: ${INITIAL_OWNER_PHONE:-05000000000}
+      INITIAL_OWNER_EMAIL: ${INITIAL_OWNER_EMAIL:-admin@binaportal.com}
+      INITIAL_OWNER_PASSWORD: ${INITIAL_OWNER_PASSWORD:-}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+      - traefik_webgateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_webgateway"
+      # Secure HTTPS router for /api
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-backend-secure.rule=(Host(`${SITE_URL:-binaportal.com}`) || Host(`www.${SITE_URL:-binaportal.com}`)) && PathPrefix(`/api`)"
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-backend-secure.entrypoints=websecure"
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-backend-secure.tls=true"
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-backend-secure.tls.certresolver=le"
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-backend-secure.priority=100"
+      - "traefik.http.services.${SITE_NAME:-binaportal}-backend.loadbalancer.server.port=8080"
+
+  # ─────────────────────────────────────────────
+  # React Frontend (Production Nginx SPA)
+  # ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+    container_name: ${SITE_NAME:-binaportal}-prod-frontend
+    restart: always
+    depends_on:
+      - backend
+    networks:
+      - default
+      - traefik_webgateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_webgateway"
+      # HTTP redirect to HTTPS
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-frontend-http.rule=Host(`${SITE_URL:-binaportal.com}`) || Host(`www.${SITE_URL:-binaportal.com}`)"
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-frontend-http.entrypoints=http"
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-frontend-http.middlewares=redirect-to-https"
+      # Secure HTTPS router for Frontend
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-frontend-secure.rule=Host(`${SITE_URL:-binaportal.com}`) || Host(`www.${SITE_URL:-binaportal.com}`)"
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-frontend-secure.entrypoints=websecure"
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-frontend-secure.tls=true"
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-frontend-secure.tls.certresolver=le"
+      - "traefik.http.routers.${SITE_NAME:-binaportal}-frontend-secure.priority=10"
+      - "traefik.http.services.${SITE_NAME:-binaportal}-frontend.loadbalancer.server.port=80"
+
+volumes:
+  postgres_prod_data:
+
+networks:
+  default:
+  traefik_webgateway:
+    external: true

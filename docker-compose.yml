@@ -20,6 +20,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - default
 
   # ─────────────────────────────────────────────
   # pgAdmin 4  (sadece geliştirme ortamında kullan)
@@ -40,12 +42,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - default
     profiles:
-      - tools  # sadece: docker compose --profile tools up
+      - tools
 
   # ─────────────────────────────────────────────
   # Go Backend  (air ile hot-reload)
-  # http://localhost:8080
+  # http://site_yonetim.localhost/api veya http://localhost:8080
   # ─────────────────────────────────────────────
   backend:
     build:
@@ -58,7 +62,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
       JWT_ACCESS_TTL_MINUTES: ${JWT_ACCESS_TTL_MINUTES:-15}
       JWT_REFRESH_TTL_DAYS: ${JWT_REFRESH_TTL_DAYS:-7}
-      PORT: ${PORT:-8080}
+      PORT: 8080
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000,http://${SITE_URL:-site_yonetim.localhost},https://${SITE_URL:-site_yonetim.localhost}
+      INITIAL_OWNER_PHONE: ${INITIAL_OWNER_PHONE:-05000000000}
+      INITIAL_OWNER_EMAIL: ${INITIAL_OWNER_EMAIL:-admin@siteyonetim.local}
+      INITIAL_OWNER_PASSWORD: ${INITIAL_OWNER_PASSWORD:-AdminPassword123!}
     ports:
       - "8080:8080"
     volumes:
@@ -66,12 +74,22 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - default
+      - traefik_webgateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_webgateway"
+      # Route /api to backend service
+      - "traefik.http.routers.site-yonetim-backend.rule=Host(`${SITE_URL:-site_yonetim.localhost}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.site-yonetim-backend.priority=100"
+      - "traefik.http.services.site-yonetim-backend.loadbalancer.server.port=8080"
     profiles:
-      - app  # sadece: docker compose --profile app up
+      - app
 
   # ─────────────────────────────────────────────
   # React Frontend  (Vite dev server)
-  # http://localhost:5173
+  # http://site_yonetim.localhost veya http://localhost:5173
   # ─────────────────────────────────────────────
   frontend:
     build:
@@ -80,17 +98,32 @@ services:
     container_name: site-yonetim-frontend
     restart: unless-stopped
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
+      VITE_API_URL: ${VITE_API_URL:-/api/v1}
     ports:
       - "5173:5173"
     volumes:
       - ./frontend:/app
-      - /app/node_modules    # node_modules host'a taşmaz
+      - /app/node_modules
     depends_on:
       - backend
+    networks:
+      - default
+      - traefik_webgateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_webgateway"
+      # Route all remaining paths to frontend SPA
+      - "traefik.http.routers.site-yonetim-frontend.rule=Host(`${SITE_URL:-site_yonetim.localhost}`)"
+      - "traefik.http.routers.site-yonetim-frontend.priority=10"
+      - "traefik.http.services.site-yonetim-frontend.loadbalancer.server.port=5173"
     profiles:
-      - app  # sadece: docker compose --profile app up
+      - app
 
 volumes:
   postgres_data:
   pgadmin_data:
+
+networks:
+  default:
+  traefik_webgateway:
+    external: true

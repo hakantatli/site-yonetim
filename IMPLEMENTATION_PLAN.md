@@ -341,13 +341,17 @@
 
 ---
 
-## Faz 13 — Production Deployment & Canlıya Alma
+## Faz 13 — Production Deployment & Canlıya Alma (binaportal.com)
 
-- [ ] `backend/Dockerfile` (production multi-stage binary)
-- [ ] `frontend/Dockerfile` (production multi-stage static nginx serve)
-- [ ] `docker-compose.prod.yml` (Traefik v3 router etiketleri & production servisleri)
-- [ ] Production veritabanı migration akışı (`goose up`)
-- [ ] OCI sunucusunda canlı test ve doğrulama
+- [x] `backend/Dockerfile` (production multi-stage binary)
+- [x] `backend/entrypoint.sh` (otomatik `goose up` migration & sunucu başlatıcı)
+- [x] `frontend/Dockerfile` (production multi-stage static nginx serve)
+- [x] `frontend/nginx.conf` (SPA fallback & gzip optimizasyonlu Nginx yapılandırması)
+- [x] `docker-compose.prod.yml` (`binaportal.com` & `www.binaportal.com` Traefik v3 HTTPS websecure, Let's Encrypt resolver `le`, HTTP yönlendirme)
+- [x] `.env.production.example` (güvenli canlı ortam şablonu)
+- [x] `.github/workflows/ci-cd.yml` (Self-Hosted Runner otomatik deploy, `PROD_ENV` secrets desteği, `docker image prune`)
+- [x] Geliştirme ortamında Traefik entegrasyonu (`site_yonetim.localhost` routing, Traefik v3 docker socket onarımı)
+- [ ] OCI sunucusunda canlı test ve doğrulama (`https://binaportal.com`)
 
 ---
 
@@ -369,7 +373,9 @@ site-yonetim/
 │   │   ├── scheduler/                    ✅ Cron İşleri (Aidat Tahakkuku)
 │   │   └── service/                      ✅ İş Mantığı & Servis Katmanı (+ Kapsamlı Unit Testler)
 │   ├── migrations/                       ✅ 00001 - 00006 Goose Migration Dosyaları
+│   ├── Dockerfile                        ✅ Canlı Üretim Dockerfile (Multi-stage Go + Goose)
 │   ├── Dockerfile.dev                    ✅ Geliştirme Dockerfile (Air hot-reload)
+│   ├── entrypoint.sh                     ✅ Canlı Başlatıcı & Otomatik Migration
 │   ├── sqlc.yaml                         ✅ SQLC Konfigürasyonu
 │   └── go.mod / go.sum                   ✅ Go 1.24 Bağımlılıkları
 ├── frontend/
@@ -379,10 +385,13 @@ site-yonetim/
 │   │   ├── pages/                        ✅ Owner, Admin, Resident Dashboard ve Login Sayfaları
 │   │   ├── store/                        ✅ Zustand Store'ları (`auth`, `toast` + Unit Testler)
 │   │   └── router/                       ✅ React Router v7 & ProtectedRoute
+│   ├── Dockerfile                        ✅ Canlı Üretim Dockerfile (Multi-stage Nginx)
 │   ├── Dockerfile.dev                    ✅ Geliştirme Dockerfile (Vite)
+│   ├── nginx.conf                        ✅ Nginx SPA & Güvenlik Başlıkları
 │   ├── package.json                      ✅ Bağımlılıklar (Vitest, React 19, Tailwind v4)
-│   └── vite.config.ts                    ✅ Vite Konfigürasyonu
-├── docker-compose.yml                    ✅ Yerel Geliştirme Ortamı
+│   └── vite.config.ts                    ✅ Vite Konfigürasyonu (allowedHosts & Proxy)
+├── docker-compose.yml                    ✅ Yerel Geliştirme Ortamı (Traefik v3 uyumlu)
+├── docker-compose.prod.yml               ✅ Canlı Üretim Ortamı (Traefik v3 + HTTPS + Izole DB)
 ├── gemini.md                             ✅ Asistan & Proje Kuralları (Feriha)
 ├── claude.md                             ✅ Senkron Asistan & Proje Kuralları
 └── IMPLEMENTATION_PLAN.md                ✅ Güncel Faz Takip Tablosu

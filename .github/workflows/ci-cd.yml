@@ -87,21 +87,39 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy with Docker Compose
+        env:
+          PROD_ENV: ${{ secrets.PROD_ENV }}
         run: |
           echo "🚀 Deployment starting on self-hosted runner..."
           
-          # Pull latest images / code
-          git pull origin main || true
-          
-          # Deploy using production compose if present, otherwise default compose
-          if [ -f docker-compose.prod.yml ]; then
-            echo "📦 Running production compose..."
-            docker compose -f docker-compose.prod.yml up -d --build
-          elif [ -f docker-compose.yml ]; then
-            echo "📦 Running standard compose..."
-            docker compose up -d --build
+          # Optional: Inject .env from GitHub Secrets if configured
+          if [ -n "$PROD_ENV" ]; then
+            echo "🔐 Injected production .env from GitHub Secrets."
+            echo "$PROD_ENV" > .env
+          elif [ -f .env ]; then
+            echo "ℹ️ Using existing local .env file on server."
           else
-            echo "⚠️ No docker-compose configuration found to deploy."
+            echo "⚠️ [Warning] No .env file found and PROD_ENV secret is empty. Docker compose may fail if required variables are missing."
           fi
           
-          echo "✅ Deployment finished successfully!"
+          # Deploy using production compose
+          if [ -f docker-compose.prod.yml ]; then
+            echo "📦 Building and deploying with docker-compose.prod.yml..."
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+            
+            echo "🧹 Cleaning unused dangling Docker images..."
+            docker image prune -f || true
+            
+            echo "🔍 Container Status:"
+            docker compose -f docker-compose.prod.yml ps
+          elif [ -f docker-compose.yml ]; then
+            echo "📦 Building and deploying with docker-compose.yml..."
+            docker compose up -d --build --remove-orphans
+            docker image prune -f || true
+            docker compose ps
+          else
+            echo "❌ No docker-compose file found."
+            exit 1
+          fi
+          
+          echo "✅ BinaPortal deployed successfully!"
