@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,7 +25,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'backend/go.mod'
+          go-version-file: "backend/go.mod"
           cache-dependency-path: backend/go.sum
 
       - name: Run go vet
@@ -53,7 +53,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Dependencies
@@ -78,7 +78,7 @@ jobs:
   # ==========================================
   deploy:
     name: Deploy to Server
-    needs: [ test-backend, test-frontend ]
+    needs: [test-backend, test-frontend]
     runs-on: self-hosted
     environment: ENV
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -102,7 +102,7 @@ jobs:
           RUN_MIGRATIONS: ${{ secrets.RUN_MIGRATIONS }}
         run: |
           echo "🚀 Deployment starting on self-hosted runner..."
-          
+
           # 1. If PROD_ENV secret block is provided, write it to .env
           if [ -n "$PROD_ENV" ]; then
             echo "🔐 Injected production .env from PROD_ENV secret."
@@ -110,25 +110,23 @@ jobs:
           elif [ ! -f .env ] || [ -n "$JWT_SECRET" ]; then
             # 2. Construct or overwrite .env from individual GitHub secrets
             echo "📝 Constructing .env from individual GitHub secrets..."
-            cat <<EOF > .env
-SITE_NAME=${SITE_NAME:-binaportal}
-SITE_URL=${SITE_URL:-binaportal.com}
-POSTGRES_USER=${POSTGRES_USER:-binaportal_user}
-POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-POSTGRES_DB=${POSTGRES_DB:-binaportal}
-JWT_SECRET=${JWT_SECRET}
-JWT_ACCESS_TTL_MINUTES=15
-JWT_REFRESH_TTL_DAYS=7
-INITIAL_OWNER_PHONE=${INITIAL_OWNER_PHONE:-05000000000}
-INITIAL_OWNER_EMAIL=${INITIAL_OWNER_EMAIL:-admin@binaportal.com}
-INITIAL_OWNER_PASSWORD=${INITIAL_OWNER_PASSWORD}
-RUN_MIGRATIONS=${RUN_MIGRATIONS:-true}
-VITE_API_URL=/api/v1
-EOF
+            echo "SITE_NAME=${SITE_NAME:-binaportal}" > .env
+            echo "SITE_URL=${SITE_URL:-binaportal.com}" >> .env
+            echo "POSTGRES_USER=${POSTGRES_USER:-binaportal_user}" >> .env
+            echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" >> .env
+            echo "POSTGRES_DB=${POSTGRES_DB:-binaportal}" >> .env
+            echo "JWT_SECRET=${JWT_SECRET}" >> .env
+            echo "JWT_ACCESS_TTL_MINUTES=15" >> .env
+            echo "JWT_REFRESH_TTL_DAYS=7" >> .env
+            echo "INITIAL_OWNER_PHONE=${INITIAL_OWNER_PHONE:-05000000000}" >> .env
+            echo "INITIAL_OWNER_EMAIL=${INITIAL_OWNER_EMAIL:-admin@binaportal.com}" >> .env
+            echo "INITIAL_OWNER_PASSWORD=${INITIAL_OWNER_PASSWORD}" >> .env
+            echo "RUN_MIGRATIONS=${RUN_MIGRATIONS:-true}" >> .env
+            echo "VITE_API_URL=/api/v1" >> .env
           else
             echo "ℹ️ Using existing local .env file on server."
           fi
-          
+
           # Deploy using production compose
           if [ -f docker-compose.prod.yml ]; then
             echo "📦 Building and deploying with docker-compose.prod.yml..."
@@ -148,5 +146,5 @@ EOF
             echo "❌ No docker-compose file found."
             exit 1
           fi
-          
+
           echo "✅ BinaPortal deployed successfully!"
