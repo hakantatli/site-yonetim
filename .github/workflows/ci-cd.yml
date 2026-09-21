@@ -89,17 +89,43 @@ jobs:
       - name: Deploy with Docker Compose
         env:
           PROD_ENV: ${{ secrets.PROD_ENV }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER || 'binaportal_user' }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB || 'binaportal' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          INITIAL_OWNER_PHONE: ${{ secrets.INITIAL_OWNER_PHONE || '05000000000' }}
+          INITIAL_OWNER_EMAIL: ${{ secrets.INITIAL_OWNER_EMAIL || 'admin@binaportal.com' }}
+          INITIAL_OWNER_PASSWORD: ${{ secrets.INITIAL_OWNER_PASSWORD }}
+          SITE_NAME: ${{ secrets.SITE_NAME || 'binaportal' }}
+          SITE_URL: ${{ secrets.SITE_URL || 'binaportal.com' }}
+          RUN_MIGRATIONS: ${{ secrets.RUN_MIGRATIONS || 'true' }}
         run: |
           echo "🚀 Deployment starting on self-hosted runner..."
           
-          # Optional: Inject .env from GitHub Secrets if configured
+          # 1. If PROD_ENV secret block is provided, write it to .env
           if [ -n "$PROD_ENV" ]; then
-            echo "🔐 Injected production .env from GitHub Secrets."
+            echo "🔐 Injected production .env from PROD_ENV secret."
             echo "$PROD_ENV" > .env
-          elif [ -f .env ]; then
-            echo "ℹ️ Using existing local .env file on server."
+          elif [ ! -f .env ] || [ -n "$JWT_SECRET" ]; then
+            # 2. Construct or overwrite .env from individual GitHub secrets
+            echo "📝 Constructing .env from individual GitHub secrets..."
+            cat <<EOF > .env
+SITE_NAME=${SITE_NAME}
+SITE_URL=${SITE_URL}
+POSTGRES_USER=${POSTGRES_USER}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_DB=${POSTGRES_DB}
+JWT_SECRET=${JWT_SECRET}
+JWT_ACCESS_TTL_MINUTES=15
+JWT_REFRESH_TTL_DAYS=7
+INITIAL_OWNER_PHONE=${INITIAL_OWNER_PHONE}
+INITIAL_OWNER_EMAIL=${INITIAL_OWNER_EMAIL}
+INITIAL_OWNER_PASSWORD=${INITIAL_OWNER_PASSWORD}
+RUN_MIGRATIONS=${RUN_MIGRATIONS}
+VITE_API_URL=/api/v1
+EOF
           else
-            echo "⚠️ [Warning] No .env file found and PROD_ENV secret is empty. Docker compose may fail if required variables are missing."
+            echo "ℹ️ Using existing local .env file on server."
           fi
           
           # Deploy using production compose
