@@ -80,6 +80,7 @@ jobs:
     name: Deploy to Server
     needs: [ test-backend, test-frontend ]
     runs-on: self-hosted
+    environment: ENV
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
