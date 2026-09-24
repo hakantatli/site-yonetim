@@ -79,3 +79,11 @@ func (r *LoginRequest) GetIdentifier() string {
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
+
+type UpdateResidentRequest struct {
+	FullName string  `json:"full_name"`
+	Phone    string  `json:"phone"`
+	Email    *string `json:"email,omitempty"`
+	Password *string `json:"password,omitempty"`
+}
+

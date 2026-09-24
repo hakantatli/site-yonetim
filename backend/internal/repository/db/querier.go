@@ -102,6 +102,8 @@ type Querier interface {
 	UpdateMeterType(ctx context.Context, arg UpdateMeterTypeParams) (MeterTypes, error)
 	UpdateSiteInitialBalance(ctx context.Context, arg UpdateSiteInitialBalanceParams) (pgtype.Numeric, error)
 	UpdateSiteLimit(ctx context.Context, arg UpdateSiteLimitParams) (Sites, error)
+	UpdateUserDetails(ctx context.Context, arg UpdateUserDetailsParams) (Users, error)
+	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (Users, error)
 	UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) (Users, error)
 	UpsertDueRate(ctx context.Context, arg UpsertDueRateParams) (DueRates, error)
 }

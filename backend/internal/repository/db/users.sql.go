@@ -218,6 +218,77 @@ func (q *Queries) ListAdminsBySiteID(ctx context.Context, siteID pgtype.UUID) ([
 	return items, nil
 }
 
+const updateUserDetails = `-- name: UpdateUserDetails :one
+UPDATE users
+SET full_name = $2,
+    phone = $3,
+    email = $4,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at
+`
+
+type UpdateUserDetailsParams struct {
+	ID       pgtype.UUID `json:"id"`
+	FullName string      `json:"full_name"`
+	Phone    string      `json:"phone"`
+	Email    pgtype.Text `json:"email"`
+}
+
+func (q *Queries) UpdateUserDetails(ctx context.Context, arg UpdateUserDetailsParams) (Users, error) {
+	row := q.db.QueryRow(ctx, updateUserDetails,
+		arg.ID,
+		arg.FullName,
+		arg.Phone,
+		arg.Email,
+	)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.SiteID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.Phone,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :one
+UPDATE users
+SET password_hash = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at
+`
+
+type UpdateUserPasswordParams struct {
+	ID           pgtype.UUID `json:"id"`
+	PasswordHash string      `json:"password_hash"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (Users, error) {
+	row := q.db.QueryRow(ctx, updateUserPassword, arg.ID, arg.PasswordHash)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.SiteID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.Phone,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateUserStatus = `-- name: UpdateUserStatus :one
 UPDATE users
 SET is_active = $2, updated_at = NOW()

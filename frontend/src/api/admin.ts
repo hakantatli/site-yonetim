@@ -90,6 +90,14 @@ export const adminApi = {
     return data;
   },
 
+  updateResident: async (residentId: string, resident: ResidentInput, siteId?: string): Promise<void> => {
+    await apiClient.put(
+      `/admin/residents/${residentId}`,
+      resident,
+      { params: siteId ? { siteId } : undefined }
+    );
+  },
+
   listTenantHistory: async (apartmentId: string): Promise<TenantHistoryItem[]> => {
     const { data } = await apiClient.get<TenantHistoryItem[]>(
       `/admin/apartments/${apartmentId}/tenant-history`

@@ -46,3 +46,20 @@ SELECT id, site_id, email, full_name, phone, role, is_active, created_at, update
 FROM users
 WHERE site_id = $1 AND role = 'admin'
 ORDER BY created_at DESC;
+
+-- name: UpdateUserDetails :one
+UPDATE users
+SET full_name = $2,
+    phone = $3,
+    email = $4,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: UpdateUserPassword :one
+UPDATE users
+SET password_hash = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+

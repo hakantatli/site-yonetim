@@ -31,6 +31,7 @@ import {
   ArrowLeft,
   UserCheck,
   UserX,
+  UserPlus,
   History,
   Trash2,
   AlertTriangle,
@@ -91,6 +92,7 @@ export function AdminDashboard() {
   // Resident Modals
   const [activeAptForAction, setActiveAptForAction] = useState<Apartment | null>(null);
   const [residentModalMode, setResidentModalMode] = useState<'owner' | 'tenant' | null>(null);
+  const [editingResidentId, setEditingResidentId] = useState<string | null>(null);
   const [residentForm, setResidentForm] = useState<ResidentInput>({
     full_name: '',
     email: '',
@@ -218,12 +220,30 @@ export function AdminDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'apartments', siteIdQuery] });
       setResidentModalMode(null);
+      setEditingResidentId(null);
       setActiveAptForAction(null);
       setResidentForm({ full_name: '', email: '', phone: '', password: '' });
       toast.success('Sakin bilgileri başarıyla kaydedildi.');
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Sakin atanırken hata oluştu';
+      toast.error(msg);
+    },
+  });
+
+  const updateResidentMutation = useMutation({
+    mutationFn: ({ residentId, res }: { residentId: string; res: ResidentInput }) =>
+      adminApi.updateResident(residentId, res, siteIdQuery),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'apartments', siteIdQuery] });
+      setResidentModalMode(null);
+      setEditingResidentId(null);
+      setActiveAptForAction(null);
+      setResidentForm({ full_name: '', email: '', phone: '', password: '' });
+      toast.success('Sakin bilgileri başarıyla güncellendi.');
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Sakin güncellenirken hata oluştu';
       toast.error(msg);
     },
   });
@@ -1197,18 +1217,55 @@ export function AdminDashboard() {
                         {/* Ev Sahibi */}
                         <td className="px-5 py-4">
                           {apt.owner_full_name ? (
-                            <div>
-                              <span className="font-semibold text-slate-900 block">{apt.owner_full_name}</span>
-                              <span className="text-[11px] text-slate-400 block">{apt.owner_email}</span>
-                              {apt.owner_phone && (
-                                <span className="text-[11px] text-slate-400 block">{formatPhone(apt.owner_phone)}</span>
-                              )}
+                            <div className="flex items-start justify-between gap-2 group">
+                              <div>
+                                <span className="font-semibold text-slate-900 block">{apt.owner_full_name}</span>
+                                <span className="text-[11px] text-slate-400 block">{apt.owner_email || '-'}</span>
+                                {apt.owner_phone && (
+                                  <span className="text-[11px] text-slate-400 block">{formatPhone(apt.owner_phone)}</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  title="Malik Bilgilerini Düzenle"
+                                  onClick={() => {
+                                    setActiveAptForAction(apt);
+                                    setResidentModalMode('owner');
+                                    setEditingResidentId(apt.owner_user_id || null);
+                                    setResidentForm({
+                                      full_name: apt.owner_full_name || '',
+                                      phone: maskPhoneInput(apt.owner_phone || ''),
+                                      email: apt.owner_email || '',
+                                      password: '',
+                                    });
+                                  }}
+                                  className="p-1 hover:bg-slate-100 text-slate-500 hover:text-indigo-600 rounded-md transition-colors"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Maliki Değiştir (Farklı Malik Ata)"
+                                  onClick={() => {
+                                    setActiveAptForAction(apt);
+                                    setResidentModalMode('owner');
+                                    setEditingResidentId(null);
+                                    setResidentForm({ full_name: '', email: '', phone: '', password: '' });
+                                  }}
+                                  className="p-1 hover:bg-slate-100 text-slate-400 hover:text-amber-600 rounded-md transition-colors"
+                                >
+                                  <UserPlus className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <button
                               onClick={() => {
                                 setActiveAptForAction(apt);
                                 setResidentModalMode('owner');
+                                setEditingResidentId(null);
+                                setResidentForm({ full_name: '', email: '', phone: '', password: '' });
                               }}
                               className="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 px-2.5 py-1 rounded-lg"
                             >
@@ -1221,18 +1278,40 @@ export function AdminDashboard() {
                         {/* Kiracı */}
                         <td className="px-5 py-4">
                           {apt.tenant_full_name ? (
-                            <div>
-                              <span className="font-semibold text-indigo-900 block">{apt.tenant_full_name}</span>
-                              <span className="text-[11px] text-slate-400 block">{apt.tenant_email}</span>
-                              {apt.tenant_phone && (
-                                <span className="text-[11px] text-slate-400 block">{formatPhone(apt.tenant_phone)}</span>
-                              )}
+                            <div className="flex items-start justify-between gap-2 group">
+                              <div>
+                                <span className="font-semibold text-indigo-900 block">{apt.tenant_full_name}</span>
+                                <span className="text-[11px] text-slate-400 block">{apt.tenant_email || '-'}</span>
+                                {apt.tenant_phone && (
+                                  <span className="text-[11px] text-slate-400 block">{formatPhone(apt.tenant_phone)}</span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                title="Kiracı Bilgilerini Düzenle"
+                                onClick={() => {
+                                  setActiveAptForAction(apt);
+                                  setResidentModalMode('tenant');
+                                  setEditingResidentId(apt.tenant_user_id || null);
+                                  setResidentForm({
+                                    full_name: apt.tenant_full_name || '',
+                                    phone: maskPhoneInput(apt.tenant_phone || ''),
+                                    email: apt.tenant_email || '',
+                                    password: '',
+                                  });
+                                }}
+                                className="p-1 hover:bg-slate-100 text-slate-500 hover:text-indigo-600 rounded-md transition-colors opacity-80 group-hover:opacity-100"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           ) : (
                             <button
                               onClick={() => {
                                 setActiveAptForAction(apt);
                                 setResidentModalMode('tenant');
+                                setEditingResidentId(null);
+                                setResidentForm({ full_name: '', email: '', phone: '', password: '' });
                               }}
                               className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-slate-800 font-semibold bg-slate-100 px-2.5 py-1 rounded-lg"
                             >
@@ -3059,15 +3138,29 @@ export function AdminDashboard() {
         </div>
       )}
 
-      {/* Modal: Sakin Ata (Malik veya Kiracı) */}
+      {/* Modal: Sakin Ata / Düzenle (Malik veya Kiracı) */}
       {residentModalMode && activeAptForAction && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-slate-900 text-sm">
-                {residentModalMode === 'owner' ? 'Ev Sahibi (Malik) Ata' : 'Kiracı Ata'} — Daire {activeAptForAction.door_number}
+                {editingResidentId
+                  ? residentModalMode === 'owner'
+                    ? 'Ev Sahibi (Malik) Bilgilerini Düzenle'
+                    : 'Kiracı Bilgilerini Düzenle'
+                  : residentModalMode === 'owner'
+                  ? 'Ev Sahibi (Malik) Ata'
+                  : 'Kiracı Ata'} — Daire {activeAptForAction.door_number}
               </h3>
-              <button onClick={() => setResidentModalMode(null)} className="text-slate-400 p-1">
+              <button
+                onClick={() => {
+                  setResidentModalMode(null);
+                  setEditingResidentId(null);
+                  setActiveAptForAction(null);
+                  setResidentForm({ full_name: '', email: '', phone: '', password: '' });
+                }}
+                className="text-slate-400 p-1 hover:text-slate-600 rounded-lg"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -3075,15 +3168,25 @@ export function AdminDashboard() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                setResidentMutation.mutate({
-                  aptId: activeAptForAction.id,
-                  res: {
-                    ...residentForm,
-                    phone: cleanPhone(residentForm.phone),
-                    email: residentForm.email?.trim() || undefined,
-                  },
-                  mode: residentModalMode,
-                });
+                const cleanedPhone = cleanPhone(residentForm.phone);
+                const payload: ResidentInput = {
+                  full_name: residentForm.full_name.trim(),
+                  phone: cleanedPhone,
+                  email: residentForm.email?.trim() || undefined,
+                  password: residentForm.password?.trim() || undefined,
+                };
+                if (editingResidentId) {
+                  updateResidentMutation.mutate({
+                    residentId: editingResidentId,
+                    res: payload,
+                  });
+                } else {
+                  setResidentMutation.mutate({
+                    aptId: activeAptForAction.id,
+                    res: payload,
+                    mode: residentModalMode,
+                  });
+                }
               }}
               className="space-y-3 text-xs"
             >
@@ -3123,31 +3226,47 @@ export function AdminDashboard() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Giriş Şifresi Belirle *</label>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  {editingResidentId ? 'Yeni Şifre Belirle (İsteğe bağlı)' : 'Giriş Şifresi Belirle *'}
+                </label>
                 <input
                   type="password"
-                  required
-                  placeholder="Sakin için giriş şifresi giriniz"
+                  required={!editingResidentId}
+                  placeholder={editingResidentId ? 'Değiştirmek istemiyorsanız boş bırakınız' : 'Sakin için giriş şifresi giriniz'}
                   value={residentForm.password || ''}
                   onChange={(e) => setResidentForm({ ...residentForm, password: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
                 />
+                {editingResidentId && (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Mevcut şifreyi korumak için bu alanı boş bırakabilirsiniz.
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setResidentModalMode(null)}
+                  onClick={() => {
+                    setResidentModalMode(null);
+                    setEditingResidentId(null);
+                    setActiveAptForAction(null);
+                    setResidentForm({ full_name: '', email: '', phone: '', password: '' });
+                  }}
                   className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg font-semibold"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  disabled={setResidentMutation.isPending}
+                  disabled={setResidentMutation.isPending || updateResidentMutation.isPending}
                   className="px-3.5 py-1.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700"
                 >
-                  {setResidentMutation.isPending ? 'Kaydediliyor...' : 'Kaydet'}
+                  {setResidentMutation.isPending || updateResidentMutation.isPending
+                    ? 'Kaydediliyor...'
+                    : editingResidentId
+                    ? 'Güncelle'
+                    : 'Kaydet ve Ata'}
                 </button>
               </div>
             </form>

@@ -20,6 +20,11 @@ var (
 	ErrOwnerRequiredForDebt = errors.New("borçları devretmek için daireye kayıtlı bir ev sahibi bulunmalıdır")
 	ErrNoTenantToRemove     = errors.New("bu dairede kayıtlı aktif bir kiracı bulunmamaktadır")
 	ErrInvalidDebtAction    = errors.New("geçersiz borç aksiyonu: 'keep', 'transfer' veya 'delete' seçilmelidir")
+	ErrResidentNotFound     = errors.New("sakin bulunamadı")
+	ErrResidentForbidden    = errors.New("bu sakin üzerinde işlem yapma yetkiniz bulunmamaktadır")
+	ErrFullNameRequired     = errors.New("ad soyad zorunludur")
+	ErrPhoneInUse           = errors.New("bu telefon numarası başka bir kullanıcı tarafından kullanılmaktadır")
+	ErrEmailInUse           = errors.New("bu e-posta adresi başka bir kullanıcı tarafından kullanılmaktadır")
 )
 
 type ApartmentService interface {
@@ -40,6 +45,7 @@ type ApartmentService interface {
 	SetTenant(ctx context.Context, siteID string, apartmentID string, resident domain.ResidentInput, recordedBy *string) (*domain.Apartment, error)
 	RemoveTenant(ctx context.Context, siteID string, apartmentID string, req domain.RemoveTenantRequest) (*domain.Apartment, error)
 	ListTenantHistory(ctx context.Context, apartmentID string) ([]domain.TenantHistoryItem, error)
+	UpdateResident(ctx context.Context, siteID string, residentID string, req domain.UpdateResidentRequest) (*domain.User, error)
 }
 
 type apartmentService struct {
@@ -288,3 +294,70 @@ func (s *apartmentService) findOrCreateResident(ctx context.Context, siteID stri
 
 	return created.ID, nil
 }
+
+func (s *apartmentService) UpdateResident(ctx context.Context, siteID string, residentID string, req domain.UpdateResidentRequest) (*domain.User, error) {
+	req.FullName = strings.TrimSpace(req.FullName)
+	if req.FullName == "" {
+		return nil, ErrFullNameRequired
+	}
+
+	req.Phone = domain.CleanPhone(req.Phone)
+	if req.Phone == "" {
+		return nil, ErrPhoneRequired
+	}
+
+	// 1. Fetch user to verify existence and site scope
+	user, err := s.userRepo.GetByID(ctx, residentID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrResidentNotFound
+		}
+		return nil, err
+	}
+
+	// Site isolation check
+	if user.SiteID == nil || *user.SiteID != siteID {
+		return nil, ErrResidentForbidden
+	}
+
+	// 2. Check if phone is being changed and if it already exists for another user
+	if user.Phone != req.Phone {
+		existingPhoneUser, _, _ := s.userRepo.GetByPhone(ctx, req.Phone)
+		if existingPhoneUser != nil && existingPhoneUser.ID != residentID {
+			return nil, ErrPhoneInUse
+		}
+	}
+
+	// 3. Check if email is being changed and if it already exists for another user
+	var emailPtr *string
+	if req.Email != nil && strings.TrimSpace(*req.Email) != "" {
+		trimmedEmail := strings.TrimSpace(*req.Email)
+		emailPtr = &trimmedEmail
+		if user.Email == nil || *user.Email != trimmedEmail {
+			existingEmailUser, _, _ := s.userRepo.GetByEmail(ctx, trimmedEmail)
+			if existingEmailUser != nil && existingEmailUser.ID != residentID {
+				return nil, ErrEmailInUse
+			}
+		}
+	}
+
+	// 4. Update user details
+	updatedUser, err := s.userRepo.UpdateUserDetails(ctx, residentID, req.FullName, req.Phone, emailPtr)
+	if err != nil {
+		return nil, err
+	}
+
+	// 5. Update password if provided
+	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
+		hash, err := bcrypt.GenerateFromPassword([]byte(strings.TrimSpace(*req.Password)), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.userRepo.UpdateUserPassword(ctx, residentID, string(hash)); err != nil {
+			return nil, err
+		}
+	}
+
+	return updatedUser, nil
+}
+

@@ -60,6 +60,8 @@ func (h *AdminHandler) Routes() chi.Router {
 	r.Post("/apartments/{id}/tenant", h.SetTenant)
 	r.Delete("/apartments/{id}/tenant", h.RemoveTenant)
 	r.Get("/apartments/{id}/tenant-history", h.ListTenantHistory)
+	r.Put("/residents/{id}", h.UpdateResident)
+	r.Patch("/residents/{id}", h.UpdateResident)
 
 	// Due Rates
 	r.Get("/due-rates", h.GetDueRates)
@@ -397,6 +399,42 @@ func (h *AdminHandler) ListTenantHistory(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	respondJSON(w, http.StatusOK, history)
+}
+
+func (h *AdminHandler) UpdateResident(w http.ResponseWriter, r *http.Request) {
+	siteID, err := h.getSiteID(r)
+	if err != nil {
+		respondJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		return
+	}
+	residentID := chi.URLParam(r, "id")
+
+	var req domain.UpdateResidentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz istek gövdesi"})
+		return
+	}
+
+	user, err := h.apartmentService.UpdateResident(r.Context(), siteID, residentID, req)
+	if err != nil {
+		if errors.Is(err, service.ErrResidentNotFound) {
+			respondJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, service.ErrResidentForbidden) {
+			respondJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, service.ErrFullNameRequired) || errors.Is(err, service.ErrPhoneRequired) ||
+			errors.Is(err, service.ErrPhoneInUse) || errors.Is(err, service.ErrEmailInUse) {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, user)
 }
 
 // ==========================================

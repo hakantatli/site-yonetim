@@ -18,6 +18,8 @@ type mockUserRepository struct {
 	createFn            func(ctx context.Context, user *domain.User, passwordHash string) (*domain.User, error)
 	countOwnersFn       func(ctx context.Context) (int64, error)
 	listAdminsBySiteIDFn func(ctx context.Context, siteID string) ([]domain.User, error)
+	updateUserDetailsFn func(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error)
+	updateUserPasswordFn func(ctx context.Context, id string, passwordHash string) error
 }
 
 func (m *mockUserRepository) GetByPhoneOrEmail(ctx context.Context, identifier string) (*domain.User, string, error) {
@@ -68,6 +70,26 @@ func (m *mockUserRepository) ListAdminsBySiteID(ctx context.Context, siteID stri
 	}
 	return nil, nil
 }
+
+func (m *mockUserRepository) UpdateUserDetails(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error) {
+	if m.updateUserDetailsFn != nil {
+		return m.updateUserDetailsFn(ctx, id, fullName, phone, email)
+	}
+	return &domain.User{
+		ID:       id,
+		FullName: fullName,
+		Phone:    phone,
+		Email:    email,
+	}, nil
+}
+
+func (m *mockUserRepository) UpdateUserPassword(ctx context.Context, id string, passwordHash string) error {
+	if m.updateUserPasswordFn != nil {
+		return m.updateUserPasswordFn(ctx, id, passwordHash)
+	}
+	return nil
+}
+
 
 // MockTokenRepository
 type mockTokenRepository struct {

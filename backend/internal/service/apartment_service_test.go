@@ -178,3 +178,126 @@ func TestApartmentService_RemoveTenant_DebtActions(t *testing.T) {
 		}
 	})
 }
+
+func TestApartmentService_UpdateResident(t *testing.T) {
+	ctx := context.Background()
+	siteID := "site-1"
+	residentID := "res-1"
+
+	existingUser := &domain.User{
+		ID:       residentID,
+		SiteID:   &siteID,
+		FullName: "Ahmet Yılmaz",
+		Phone:    "05066588775",
+		Email:    nil,
+		Role:     domain.RoleResident,
+	}
+
+	t.Run("successfully update resident without password", func(t *testing.T) {
+		userRepo := &mockUserRepository{
+			getByIDFn: func(ctx context.Context, id string) (*domain.User, error) {
+				return existingUser, nil
+			},
+			updateUserDetailsFn: func(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error) {
+				return &domain.User{
+					ID:       id,
+					SiteID:   &siteID,
+					FullName: fullName,
+					Phone:    phone,
+					Email:    email,
+					Role:     domain.RoleResident,
+				}, nil
+			},
+		}
+
+		svc := NewApartmentService(&mockApartmentRepository{}, &mockSiteRepository{}, userRepo)
+		newEmail := "ahmet@gmail.com"
+		updated, err := svc.UpdateResident(ctx, siteID, residentID, domain.UpdateResidentRequest{
+			FullName: "Ahmet Can Yılmaz",
+			Phone:    "0(506) 658 8775",
+			Email:    &newEmail,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if updated.FullName != "Ahmet Can Yılmaz" {
+			t.Fatalf("expected updated name, got %s", updated.FullName)
+		}
+		if *updated.Email != newEmail {
+			t.Fatalf("expected updated email, got %v", updated.Email)
+		}
+	})
+
+	t.Run("successfully update resident with password", func(t *testing.T) {
+		pwdUpdated := false
+		userRepo := &mockUserRepository{
+			getByIDFn: func(ctx context.Context, id string) (*domain.User, error) {
+				return existingUser, nil
+			},
+			updateUserDetailsFn: func(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error) {
+				return existingUser, nil
+			},
+			updateUserPasswordFn: func(ctx context.Context, id string, passwordHash string) error {
+				pwdUpdated = true
+				return nil
+			},
+		}
+
+		svc := NewApartmentService(&mockApartmentRepository{}, &mockSiteRepository{}, userRepo)
+		newPass := "NewSecretPassword123!"
+		_, err := svc.UpdateResident(ctx, siteID, residentID, domain.UpdateResidentRequest{
+			FullName: "Ahmet Yılmaz",
+			Phone:    "05066588775",
+			Password: &newPass,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !pwdUpdated {
+			t.Fatalf("expected password update to be called")
+		}
+	})
+
+	t.Run("phone already in use by another user returns ErrPhoneInUse", func(t *testing.T) {
+		userRepo := &mockUserRepository{
+			getByIDFn: func(ctx context.Context, id string) (*domain.User, error) {
+				return existingUser, nil
+			},
+			getByPhoneFn: func(ctx context.Context, phone string) (*domain.User, string, error) {
+				return &domain.User{ID: "other-user", Phone: phone}, "", nil
+			},
+		}
+
+		svc := NewApartmentService(&mockApartmentRepository{}, &mockSiteRepository{}, userRepo)
+		_, err := svc.UpdateResident(ctx, siteID, residentID, domain.UpdateResidentRequest{
+			FullName: "Ahmet Yılmaz",
+			Phone:    "05321112233", // different phone
+		})
+		if err != ErrPhoneInUse {
+			t.Fatalf("expected ErrPhoneInUse, got %v", err)
+		}
+	})
+
+	t.Run("resident from different site returns ErrResidentForbidden", func(t *testing.T) {
+		diffSiteID := "site-2"
+		diffUser := &domain.User{
+			ID:     residentID,
+			SiteID: &diffSiteID,
+		}
+		userRepo := &mockUserRepository{
+			getByIDFn: func(ctx context.Context, id string) (*domain.User, error) {
+				return diffUser, nil
+			},
+		}
+
+		svc := NewApartmentService(&mockApartmentRepository{}, &mockSiteRepository{}, userRepo)
+		_, err := svc.UpdateResident(ctx, siteID, residentID, domain.UpdateResidentRequest{
+			FullName: "Ahmet Yılmaz",
+			Phone:    "05066588775",
+		})
+		if err != ErrResidentForbidden {
+			t.Fatalf("expected ErrResidentForbidden, got %v", err)
+		}
+	})
+}
+

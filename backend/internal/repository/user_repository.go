@@ -22,6 +22,8 @@ type UserRepository interface {
 	Create(ctx context.Context, user *domain.User, passwordHash string) (*domain.User, error)
 	CountOwners(ctx context.Context) (int64, error)
 	ListAdminsBySiteID(ctx context.Context, siteID string) ([]domain.User, error)
+	UpdateUserDetails(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error)
+	UpdateUserPassword(ctx context.Context, id string, passwordHash string) error
 }
 
 type pgUserRepository struct {
@@ -181,3 +183,36 @@ func (r *pgUserRepository) ListAdminsBySiteID(ctx context.Context, siteID string
 	}
 	return admins, nil
 }
+
+func (r *pgUserRepository) UpdateUserDetails(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error) {
+	updated, err := r.queries.UpdateUserDetails(ctx, db.UpdateUserDetailsParams{
+		ID:       StringToUUID(id),
+		FullName: fullName,
+		Phone:    phone,
+		Email:    PtrStringToText(email),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.User{
+		ID:        UUIDToString(updated.ID),
+		SiteID:    UUIDToPtrString(updated.SiteID),
+		Phone:     updated.Phone,
+		Email:     TextToPtrString(updated.Email),
+		FullName:  updated.FullName,
+		Role:      domain.UserRole(updated.Role),
+		IsActive:  updated.IsActive,
+		CreatedAt: updated.CreatedAt.Time,
+		UpdatedAt: updated.UpdatedAt.Time,
+	}, nil
+}
+
+func (r *pgUserRepository) UpdateUserPassword(ctx context.Context, id string, passwordHash string) error {
+	_, err := r.queries.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
+		ID:           StringToUUID(id),
+		PasswordHash: passwordHash,
+	})
+	return err
+}
+
