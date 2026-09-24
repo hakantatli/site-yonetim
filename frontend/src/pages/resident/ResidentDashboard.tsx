@@ -624,7 +624,7 @@ export function ResidentDashboard() {
                                 Dairenize Düşen Toplam
                               </span>
                               <span className="text-lg font-black text-emerald-700 font-mono">
-                                ₺{item.total_amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                                ₺{item.total_amount.toLocaleString('tr-TR', { minimumFractionDigits: item.total_amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
 
@@ -682,7 +682,7 @@ export function ResidentDashboard() {
                             <div className="flex justify-between items-center font-bold text-slate-900 pt-1">
                               <span>Daire Tüketim Bedeli:</span>
                               <span className="font-mono text-emerald-700">
-                                ₺{item.individual_amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                                ₺{item.individual_amount.toLocaleString('tr-TR', { minimumFractionDigits: item.individual_amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
                           </div>
@@ -720,7 +720,7 @@ export function ResidentDashboard() {
                             <div className="flex justify-between items-center font-bold text-slate-900 pt-1">
                               <span>Dairenize Yansıyan Pay:</span>
                               <span className="font-mono text-blue-700">
-                                {item.common_area_amount > 0 ? `+₺${item.common_area_amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '₺0,00 (Daireye eklenmez)'}
+                                {item.common_area_amount > 0 ? `+₺${item.common_area_amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '₺0 (Daireye eklenmez)'}
                               </span>
                             </div>
                           </div>
@@ -739,7 +739,7 @@ export function ResidentDashboard() {
                           <span className="font-mono text-slate-700 font-semibold">
                             {item.common_area_amount > 0
                               ? `₺${item.individual_amount.toFixed(2)} + ₺${item.common_area_amount.toFixed(2)} = ₺${item.total_amount.toFixed(2)}`
-                              : `₺${item.individual_amount.toFixed(2)}`}
+                              : `₺${item.individual_amount % 1 === 0 ? item.individual_amount.toFixed(0) : item.individual_amount.toFixed(2)}`}
                           </span>
                         </div>
                       </div>

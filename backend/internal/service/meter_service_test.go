@@ -94,6 +94,100 @@ func TestMeterService_CreateConsumptionPeriod_Reconciliation(t *testing.T) {
 	}
 }
 
+func TestMeterService_CreateConsumptionPeriod_Rounding(t *testing.T) {
+	ctx := context.Background()
+
+	ownerID1 := "owner-1"
+	ownerID2 := "owner-2"
+
+	apt1 := domain.Apartment{ID: "apt-1", SiteID: "site-1", DoorNumber: "1", OwnerUserID: &ownerID1}
+	apt2 := domain.Apartment{ID: "apt-2", SiteID: "site-1", DoorNumber: "2", OwnerUserID: &ownerID2}
+
+	aptRepo := &mockApartmentRepository{
+		listApartmentsFn: func(ctx context.Context, siteID string) ([]domain.Apartment, error) {
+			return []domain.Apartment{apt1, apt2}, nil
+		},
+	}
+
+	meterRepo := &mockMeterRepository{
+		getMeterTypeByIDFn: func(ctx context.Context, id, siteID string) (*domain.MeterType, error) {
+			return &domain.MeterType{ID: id, SiteID: siteID, Name: "Su", Unit: "m³", IsActive: true}, nil
+		},
+		createConsumptionPeriodWithReadings: func(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading) (*domain.ConsumptionPeriod, []domain.MeterReading, error) {
+			period.ID = "period-2"
+			return period, readings, nil
+		},
+	}
+
+	var createdDebts []*domain.Debt
+	debtRepo := &mockDebtRepository{
+		createFn: func(ctx context.Context, debt *domain.Debt) (*domain.Debt, error) {
+			createdDebts = append(createdDebts, debt)
+			debt.ID = "debt-utility-round"
+			return debt, nil
+		},
+	}
+
+	svc := NewMeterService(meterRepo, aptRepo, debtRepo)
+
+	// Fatura: 1000 TL, Ana Sayaç: 0 -> 300 (300 m³). Birim fiyat = 3.333333 TL/m³
+	// Daire 1: 0 -> 100 (100 m³) -> 333.33 TL -> Yuvarlanmış: 333 TL
+	// Daire 2: 0 -> 100 (100 m³) -> 333.33 TL -> Yuvarlanmış: 333 TL
+	// Daireler borç toplamı: 333 + 333 = 666 TL (Tam sayı)
+	// Ortak alan tüketimi: 300 - 200 = 100 m³
+	// Ortak alan tutarı: 1000 - 666 = 334 TL (Yuvarlama farkı ortak alana yansır)
+	// Daireler toplamı (666) + Ortak alan (334) = Fatura (1000)
+	payload := domain.CreateConsumptionPeriodPayload{
+		MeterTypeID:       "mt-water",
+		Period:            "2026-09",
+		TotalBillAmount:   1000,
+		MainMeterPrevious: 0,
+		MainMeterCurrent:  300,
+		Readings: []domain.ReadingInput{
+			{ApartmentID: "apt-1", PreviousReading: 0, CurrentReading: 100},
+			{ApartmentID: "apt-2", PreviousReading: 0, CurrentReading: 100},
+		},
+	}
+
+	period, readings, err := svc.CreateConsumptionPeriod(ctx, "site-1", "admin-1", payload)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, r := range readings {
+		// Daire borçları tam sayı (virgülsüz) olmalıdır
+		if r.IndividualAmount != math.Trunc(r.IndividualAmount) {
+			t.Fatalf("reading individual amount should be integer, got %f", r.IndividualAmount)
+		}
+		if r.TotalAmount != math.Trunc(r.TotalAmount) {
+			t.Fatalf("reading total amount should be integer, got %f", r.TotalAmount)
+		}
+	}
+
+	if readings[0].IndividualAmount != 333 {
+		t.Fatalf("expected reading 1 individual amount 333, got %f", readings[0].IndividualAmount)
+	}
+	if readings[1].IndividualAmount != 333 {
+		t.Fatalf("expected reading 2 individual amount 333, got %f", readings[1].IndividualAmount)
+	}
+
+	// Ortak alan tutarı 334 TL olmalı
+	if period.CommonAreaCost != 334 {
+		t.Fatalf("expected common area cost 334, got %f", period.CommonAreaCost)
+	}
+
+	// Daireler toplamı + Ortak alan == Fatura tutarı
+	var totalDebtCreated float64
+	for _, d := range createdDebts {
+		totalDebtCreated += d.Amount
+	}
+
+	if totalDebtCreated+period.CommonAreaCost != payload.TotalBillAmount {
+		t.Fatalf("total debts (%.2f) + common area (%.2f) != bill amount (%.2f)",
+			totalDebtCreated, period.CommonAreaCost, payload.TotalBillAmount)
+	}
+}
+
 func TestMeterService_CreateMeterType_Validation(t *testing.T) {
 	ctx := context.Background()
 

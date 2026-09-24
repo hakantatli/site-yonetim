@@ -134,8 +134,6 @@ func (s *meterService) CreateConsumptionPeriod(
 	}
 
 	commonAreaConsumption := math.Round((totalBilledConsumption-totalApartmentsConsumption)*1000) / 1000
-	commonAreaCost := math.Round(commonAreaConsumption*unitCost*100) / 100
-
 
 	// Sitedeki daireleri çek (muhatap belirlemek için)
 	apts, err := s.apartmentRepo.ListApartments(ctx, siteID)
@@ -157,10 +155,13 @@ func (s *meterService) CreateConsumptionPeriod(
 	periodMonthLabel := pMonthTime.Format("01/2006")
 
 	readingsToSave := make([]domain.MeterReading, len(req.Readings))
+	var totalApartmentsAmount float64
 
 	for i, rd := range req.Readings {
 		consumption := math.Round((rd.CurrentReading-rd.PreviousReading)*1000) / 1000
-		indAmount := math.Round(consumption*unitCost*100) / 100
+		// Borçları virgülden sonraki kısımları kaldırarak en yakın tam sayıya yuvarla
+		indAmount := math.Round(consumption * unitCost)
+		totalApartmentsAmount += indAmount
 
 		apt, ok := aptMap[rd.ApartmentID]
 		var debtorID *string
@@ -199,6 +200,13 @@ func (s *meterService) CreateConsumptionPeriod(
 			ReadingDate:      time.Now().Format("2006-01-02"),
 			Notes:            rd.Notes,
 		}
+	}
+
+	// Ortak alan tutarı: Fatura tutarı - Dairelerin yuvarlanmış toplam tutarı
+	// Dairelerin toplamı ve ortak alanın toplamı her zaman fatura tutarına eşit olur (yuvarlama farkı ortak alana yansır).
+	commonAreaCost := math.Round((req.TotalBillAmount-totalApartmentsAmount)*100) / 100
+	if commonAreaCost < 0 {
+		commonAreaCost = 0
 	}
 
 	// Borçları (debts) oluştur (Ortak alan site yönetimi borcudur, daireye sadece bireysel tüketim tahakkuk eder)

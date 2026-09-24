@@ -163,6 +163,10 @@
   - Daireye bu dönem için tahakkuk eden yeni borç tutarı doğrudan `Daire Bireysel Tüketim Bedeli`dir (`Daire Tüketimi * Birim Fiyat`).
   - Sayaç okuma dağıtım tablosundaki `Toplam Borç`: Dairenin varsa daha önceki aylardan kalan ödenmemiş su/sayaç borcu ile bu dönem yeni dağıtılan bireysel tüketim borcunun toplamıdır (`Toplam Borç = Varsa Önceki Su Borcu + Yeni Bireysel Dağıtım Borcu`).
   - Borç kaydı `utility` türünde açılır ve muhatabı kiracı varsa kiracıya, daire boşsa ev sahibine tahakkuk eder.
+- **Borç Yuvarlama ve Fatura Denkliği:**
+  - Dairelere tahakkuk eden bireysel paylar virgülden sonraki kısımlar kaldırılarak en yakın tam sayıya yuvarlanır (`math.Round(Daire Tüketimi * Birim Fiyat)`).
+  - Dairelerin yuvarlanmış toplam tutarı ile ortak alan bedelinin toplamı her zaman ana fatura tutarına kuruşu kuruşuna eşit olur (`Daireler Toplamı + Ortak Alan Tutarı = Fatura Tutarı`).
+  - Yuvarlama farkları doğrudan site yönetiminin karşıladığı ortak alan bedeline yansıtılır (`Ortak Alan Tutarı = Fatura Tutarı - Daireler Toplamı`).
 - **Şeffaf Görüntüleme:**
   - **Yönetici Paneli:** Tüm geçmiş dönemlerin ana sayaç, daire sayaçları, birim maliyet ve ortak alan dökümleri listelenir ve detay modalı ile görüntülenebilir.
   - **Sakin Paneli:** Sakinler kendi dairelerinin ilk/son endeksini, tüketimini, birim fiyatını, bina ana fatura tutarını ve bina ortak alan tüketimini şeffafça inceler.

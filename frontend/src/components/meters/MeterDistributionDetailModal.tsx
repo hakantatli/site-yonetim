@@ -152,13 +152,13 @@ export function MeterDistributionDetailModal({
                         {r.consumption} {period.meter_type_unit}
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-slate-600">
-                        ₺{r.individual_amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                        ₺{r.individual_amount.toLocaleString('tr-TR', { minimumFractionDigits: r.individual_amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="py-2 px-3 text-right font-mono text-slate-500">
                         ₺{r.common_area_amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2 px-3 text-right font-mono font-bold text-indigo-700 whitespace-nowrap">
-                        ₺{r.total_amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                        ₺{r.total_amount.toLocaleString('tr-TR', { minimumFractionDigits: r.total_amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="py-2 px-3 text-center">
                         {r.debt_status === 'paid' ? (
