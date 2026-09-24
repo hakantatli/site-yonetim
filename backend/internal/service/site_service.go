@@ -92,7 +92,7 @@ func (s *siteService) UpdateLimit(ctx context.Context, id string, limit int32) (
 }
 
 func (s *siteService) CreateAdmin(ctx context.Context, siteID string, req domain.CreateAdminRequest) (*domain.User, error) {
-	req.Phone = strings.TrimSpace(req.Phone)
+	req.Phone = domain.CleanPhone(req.Phone)
 	req.FullName = strings.TrimSpace(req.FullName)
 	if req.Phone == "" || req.Password == "" || req.FullName == "" {
 		return nil, ErrInvalidAdminInput

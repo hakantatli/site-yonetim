@@ -151,6 +151,7 @@ func (s *apartmentService) SoftDeleteApartment(ctx context.Context, siteID strin
 
 // Residents
 func (s *apartmentService) SetOwner(ctx context.Context, siteID string, apartmentID string, resident domain.ResidentInput) (*domain.Apartment, error) {
+	resident.Phone = domain.CleanPhone(resident.Phone)
 	if resident.Phone == "" {
 		return nil, ErrPhoneRequired
 	}
@@ -168,6 +169,7 @@ func (s *apartmentService) SetOwner(ctx context.Context, siteID string, apartmen
 }
 
 func (s *apartmentService) SetTenant(ctx context.Context, siteID string, apartmentID string, resident domain.ResidentInput, recordedBy *string) (*domain.Apartment, error) {
+	resident.Phone = domain.CleanPhone(resident.Phone)
 	if resident.Phone == "" {
 		return nil, ErrPhoneRequired
 	}
@@ -250,6 +252,7 @@ func (s *apartmentService) ListTenantHistory(ctx context.Context, apartmentID st
 
 // Helper to find or create resident
 func (s *apartmentService) findOrCreateResident(ctx context.Context, siteID string, res domain.ResidentInput) (string, error) {
+	res.Phone = domain.CleanPhone(res.Phone)
 	if res.Phone == "" {
 		return "", ErrPhoneRequired
 	}

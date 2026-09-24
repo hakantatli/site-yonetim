@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ownerApi, type CreateAdminPayload } from '../../api/owner';
+import { maskPhoneInput, cleanPhone, formatPhone } from '../../utils/phone';
 import {
   ArrowLeft,
   Users,
@@ -104,14 +105,15 @@ export function SiteDetailPage() {
 
   const handleAdminSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminForm.phone.trim() || !adminForm.password.trim() || !adminForm.full_name.trim()) {
+    const rawPhone = cleanPhone(adminForm.phone);
+    if (!rawPhone || !adminForm.password.trim() || !adminForm.full_name.trim()) {
       setAdminError('Ad Soyad, Telefon Numarası ve Şifre alanları zorunludur.');
       return;
     }
     createAdminMutation.mutate({
       ...adminForm,
       full_name: adminForm.full_name.trim(),
-      phone: adminForm.phone.trim(),
+      phone: rawPhone,
       email: adminForm.email?.trim() || undefined,
     });
   };
@@ -363,7 +365,7 @@ export function SiteDetailPage() {
                         {adm.phone && (
                           <span className="flex items-center gap-1">
                             <Phone className="w-3 h-3 text-slate-400" />
-                            <span>{adm.phone}</span>
+                            <span>{formatPhone(adm.phone)}</span>
                           </span>
                         )}
                       </div>
@@ -438,9 +440,9 @@ export function SiteDetailPage() {
                   <input
                     type="tel"
                     required
-                    placeholder="0555 123 45 67"
+                    placeholder="0(506) 658 8775"
                     value={adminForm.phone}
-                    onChange={(e) => setAdminForm({ ...adminForm, phone: e.target.value })}
+                    onChange={(e) => setAdminForm({ ...adminForm, phone: maskPhoneInput(e.target.value) })}
                     className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   />
                 </div>

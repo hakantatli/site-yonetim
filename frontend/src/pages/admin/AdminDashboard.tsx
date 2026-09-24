@@ -21,6 +21,7 @@ import type { SetDueRatePayload, CreateManualDebtPayload, CreateBulkDebtPayload,
 import type { RecordPaymentRequest, PaymentMethod } from '../../types/payment';
 import type { ExpenseCategory, CreateExpensePayload } from '../../types/expense';
 import type { Announcement } from '../../types/announcement';
+import { maskPhoneInput, cleanPhone, formatPhone } from '../../utils/phone';
 import {
   Building,
   Plus,
@@ -1200,7 +1201,7 @@ export function AdminDashboard() {
                               <span className="font-semibold text-slate-900 block">{apt.owner_full_name}</span>
                               <span className="text-[11px] text-slate-400 block">{apt.owner_email}</span>
                               {apt.owner_phone && (
-                                <span className="text-[11px] text-slate-400 block">{apt.owner_phone}</span>
+                                <span className="text-[11px] text-slate-400 block">{formatPhone(apt.owner_phone)}</span>
                               )}
                             </div>
                           ) : (
@@ -1224,7 +1225,7 @@ export function AdminDashboard() {
                               <span className="font-semibold text-indigo-900 block">{apt.tenant_full_name}</span>
                               <span className="text-[11px] text-slate-400 block">{apt.tenant_email}</span>
                               {apt.tenant_phone && (
-                                <span className="text-[11px] text-slate-400 block">{apt.tenant_phone}</span>
+                                <span className="text-[11px] text-slate-400 block">{formatPhone(apt.tenant_phone)}</span>
                               )}
                             </div>
                           ) : (
@@ -1628,7 +1629,7 @@ export function AdminDashboard() {
                           </td>
                           <td className="px-4 py-3.5">
                             <span className="font-semibold text-slate-900 block">{debt.debtor_full_name}</span>
-                            <span className="text-[11px] text-slate-400 block">{debt.debtor_phone}</span>
+                            <span className="text-[11px] text-slate-400 block">{formatPhone(debt.debtor_phone)}</span>
                           </td>
                           <td className="px-4 py-3.5">
                             {debt.type === 'monthly_due' && (
@@ -1915,7 +1916,7 @@ export function AdminDashboard() {
                           </td>
                           <td className="px-4 py-3.5">
                             <span className="font-semibold text-slate-900 block">{p.debtor_full_name}</span>
-                            <span className="text-[11px] text-slate-400 block">{p.debtor_phone}</span>
+                            <span className="text-[11px] text-slate-400 block">{formatPhone(p.debtor_phone)}</span>
                           </td>
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-1.5">
@@ -2837,10 +2838,12 @@ export function AdminDashboard() {
                   ...newApt,
                   owner: newApt.owner ? {
                     ...newApt.owner,
+                    phone: cleanPhone(newApt.owner.phone),
                     email: newApt.owner.email?.trim() || undefined,
                   } : undefined,
                   tenant: newApt.tenant ? {
                     ...newApt.tenant,
+                    phone: cleanPhone(newApt.tenant.phone),
                     email: newApt.tenant.email?.trim() || undefined,
                   } : undefined,
                 };
@@ -2916,9 +2919,9 @@ export function AdminDashboard() {
                     <input
                       type="tel"
                       required
-                      placeholder="Telefon Numarası *"
+                      placeholder="Telefon Numarası * 0(506) 658 8775"
                       value={newApt.owner?.phone || ''}
-                      onChange={(e) => setNewApt({ ...newApt, owner: { ...newApt.owner!, phone: e.target.value } })}
+                      onChange={(e) => setNewApt({ ...newApt, owner: { ...newApt.owner!, phone: maskPhoneInput(e.target.value) } })}
                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg"
                     />
                     <input
@@ -2969,9 +2972,9 @@ export function AdminDashboard() {
                     <input
                       type="tel"
                       required
-                      placeholder="Kiracı Telefon *"
+                      placeholder="Kiracı Telefon * 0(506) 658 8775"
                       value={newApt.tenant?.phone || ''}
-                      onChange={(e) => setNewApt({ ...newApt, tenant: { ...newApt.tenant!, phone: e.target.value } })}
+                      onChange={(e) => setNewApt({ ...newApt, tenant: { ...newApt.tenant!, phone: maskPhoneInput(e.target.value) } })}
                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg"
                     />
                     <input
@@ -3076,6 +3079,7 @@ export function AdminDashboard() {
                   aptId: activeAptForAction.id,
                   res: {
                     ...residentForm,
+                    phone: cleanPhone(residentForm.phone),
                     email: residentForm.email?.trim() || undefined,
                   },
                   mode: residentModalMode,
@@ -3100,9 +3104,9 @@ export function AdminDashboard() {
                 <input
                   type="tel"
                   required
-                  placeholder="05xx xxx xx xx"
+                  placeholder="0(506) 658 8775"
                   value={residentForm.phone}
-                  onChange={(e) => setResidentForm({ ...residentForm, phone: e.target.value })}
+                  onChange={(e) => setResidentForm({ ...residentForm, phone: maskPhoneInput(e.target.value) })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
                 />
               </div>
@@ -3300,7 +3304,7 @@ export function AdminDashboard() {
                     </div>
                     <div className="text-slate-500 text-[11px] mb-1">
                       <span>{item.tenant_email}</span>
-                      {item.tenant_phone && <span className="ml-2">({item.tenant_phone})</span>}
+                      {item.tenant_phone && <span className="ml-2">({formatPhone(item.tenant_phone)})</span>}
                     </div>
                     {item.debt_action && (
                       <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
@@ -3799,7 +3803,7 @@ export function AdminDashboard() {
               <div className="flex justify-between items-center pb-2 border-b border-slate-200">
                 <span className="text-slate-500 font-medium">Ödeyen (Borçlu):</span>
                 <span className="font-semibold text-slate-900">
-                  {selectedDebtForPayment.debtor_full_name} ({selectedDebtForPayment.debtor_phone})
+                  {selectedDebtForPayment.debtor_full_name} ({formatPhone(selectedDebtForPayment.debtor_phone)})
                 </span>
               </div>
               <div className="flex justify-between items-center pb-2 border-b border-slate-200">

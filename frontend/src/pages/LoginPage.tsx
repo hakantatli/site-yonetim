@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { authApi } from '../api/auth';
+import { maskPhoneInput, cleanPhone, formatPhone } from '../utils/phone';
 import { Building2, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
 
 export function LoginPage() {
@@ -21,6 +22,16 @@ export function LoginPage() {
     return <Navigate to="/resident/dashboard" replace />;
   }
 
+  const handleIdentifierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // Apply phone mask if input looks like a phone number (digits and formatting chars without @)
+    if (!val.includes('@') && /^[0-9()\s-]*$/.test(val)) {
+      setLoginIdentifier(maskPhoneInput(val));
+    } else {
+      setLoginIdentifier(val);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -32,7 +43,10 @@ export function LoginPage() {
 
     setIsLoading(true);
     try {
-      const response = await authApi.login({ login: loginIdentifier, password });
+      const identifierToSend = loginIdentifier.includes('@')
+        ? loginIdentifier.trim()
+        : cleanPhone(loginIdentifier);
+      const response = await authApi.login({ login: identifierToSend, password });
       setAuth(response);
 
       const from = (location.state as { from?: { pathname: string } })?.from?.pathname;
@@ -65,7 +79,7 @@ export function LoginPage() {
   };
 
   const fillDefaultOwner = () => {
-    setLoginIdentifier('05000000000');
+    setLoginIdentifier(formatPhone('05000000000'));
     setPassword('AdminPassword123!');
   };
 
@@ -107,8 +121,8 @@ export function LoginPage() {
                   type="text"
                   required
                   value={loginIdentifier}
-                  onChange={(e) => setLoginIdentifier(e.target.value)}
-                  placeholder="05xx xxx xx xx veya ornek@site.com"
+                  onChange={handleIdentifierChange}
+                  placeholder="0(506) 658 8775 veya ornek@site.com"
                   className="block w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
               </div>
@@ -156,7 +170,7 @@ export function LoginPage() {
             <div className="mt-6 pt-6 border-t border-slate-100">
               <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 text-xs">
                 <span className="font-semibold text-slate-700 block mb-1">Geliştirici Girişi (Seeded Owner):</span>
-                <p className="text-slate-500 mb-2 font-mono">05000000000 / AdminPassword123!</p>
+                <p className="text-slate-500 mb-2 font-mono">{formatPhone('05000000000')} / AdminPassword123!</p>
                 <button
                   type="button"
                   onClick={fillDefaultOwner}

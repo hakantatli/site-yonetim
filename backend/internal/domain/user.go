@@ -39,17 +39,41 @@ type LoginRequest struct {
 	Password string  `json:"password"`
 }
 
+// CleanPhone strips non-digit characters and ensures leading 0 for 10-digit Turkish numbers.
+func CleanPhone(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+	var digits strings.Builder
+	for _, r := range value {
+		if r >= '0' && r <= '9' {
+			digits.WriteRune(r)
+		}
+	}
+	s := digits.String()
+	if len(s) == 10 && strings.HasPrefix(s, "5") {
+		return "0" + s
+	}
+	return s
+}
+
 func (r *LoginRequest) GetIdentifier() string {
+	raw := ""
 	if strings.TrimSpace(r.Login) != "" {
-		return strings.TrimSpace(r.Login)
-	}
-	if r.Phone != nil && strings.TrimSpace(*r.Phone) != "" {
-		return strings.TrimSpace(*r.Phone)
-	}
-	if r.Email != nil && strings.TrimSpace(*r.Email) != "" {
+		raw = strings.TrimSpace(r.Login)
+	} else if r.Phone != nil && strings.TrimSpace(*r.Phone) != "" {
+		raw = strings.TrimSpace(*r.Phone)
+	} else if r.Email != nil && strings.TrimSpace(*r.Email) != "" {
 		return strings.TrimSpace(*r.Email)
 	}
-	return ""
+
+	if raw != "" && !strings.Contains(raw, "@") {
+		cleaned := CleanPhone(raw)
+		if cleaned != "" {
+			return cleaned
+		}
+	}
+	return raw
 }
 
 type RefreshRequest struct {
