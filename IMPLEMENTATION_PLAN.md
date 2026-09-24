@@ -406,7 +406,7 @@ site-yonetim/
 docker compose up postgres -d
 
 # Tüm stack (yerel dev)
-docker compose --profile app up -d
+docker compose up -d
 
 # Backend testlerini çalıştır
 cd backend && go test -v -cover ./...

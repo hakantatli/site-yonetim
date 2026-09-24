@@ -84,8 +84,6 @@ services:
       - "traefik.http.routers.site-yonetim-backend.rule=Host(`${SITE_URL:-site_yonetim.localhost}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.site-yonetim-backend.priority=100"
       - "traefik.http.services.site-yonetim-backend.loadbalancer.server.port=8080"
-    profiles:
-      - app
 
   # ─────────────────────────────────────────────
   # React Frontend  (Vite dev server)
@@ -116,8 +114,6 @@ services:
       - "traefik.http.routers.site-yonetim-frontend.rule=Host(`${SITE_URL:-site_yonetim.localhost}`)"
       - "traefik.http.routers.site-yonetim-frontend.priority=10"
       - "traefik.http.services.site-yonetim-frontend.loadbalancer.server.port=5173"
-    profiles:
-      - app
 
 volumes:
   postgres_data:
