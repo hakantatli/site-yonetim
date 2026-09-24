@@ -80,10 +80,11 @@ type MeterReading struct {
 }
 
 type ApartmentLastReading struct {
-	ApartmentID string  `json:"apartment_id"`
-	DoorNumber  string  `json:"door_number"`
-	BlockName   *string `json:"block_name,omitempty"`
-	LastReading float64 `json:"last_reading"`
+	ApartmentID  string  `json:"apartment_id"`
+	DoorNumber   string  `json:"door_number"`
+	BlockName    *string `json:"block_name,omitempty"`
+	LastReading  float64 `json:"last_reading"`
+	PreviousDebt float64 `json:"previous_debt"`
 }
 
 type PreviousReadingsResponse struct {

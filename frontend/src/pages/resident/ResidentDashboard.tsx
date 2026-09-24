@@ -712,13 +712,15 @@ export function ResidentDashboard() {
                               </span>
                             </div>
                             <div className="flex justify-between items-center text-slate-600 border-t border-blue-100/60 pt-2">
-                              <span>Hesaplama Yöntemi:</span>
-                              <span className="text-[11px] text-slate-500">Aktif dairelere eşit paylaştırıldı</span>
+                              <span>Ortak Alan Durumu:</span>
+                              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                {item.common_area_amount > 0 ? `Daireye yansıtıldı: ₺${item.common_area_amount.toFixed(2)}` : 'Site Yönetimi Karşılar (0 ₺)'}
+                              </span>
                             </div>
                             <div className="flex justify-between items-center font-bold text-slate-900 pt-1">
-                              <span>Dairenize Düşen Ortak Pay:</span>
+                              <span>Dairenize Yansıyan Pay:</span>
                               <span className="font-mono text-blue-700">
-                                +₺{item.common_area_amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                                {item.common_area_amount > 0 ? `+₺${item.common_area_amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '₺0,00 (Daireye eklenmez)'}
                               </span>
                             </div>
                           </div>
@@ -729,11 +731,15 @@ export function ResidentDashboard() {
                           <div className="flex items-center gap-1.5">
                             <Info className="w-3.5 h-3.5 text-slate-400" />
                             <span>
-                              Formül: (Daire Tüketimi × Birim Fiyat) + Ortak Alan Payı = Toplam Tahakkuk
+                              {item.common_area_amount > 0
+                                ? 'Formül: (Daire Tüketimi × Birim Fiyat) + Ortak Alan Payı = Toplam Tahakkuk'
+                                : 'Formül: Daire Tüketimi × Birim Fiyat = Tahakkuk Eden Borç (Ortak alan site yönetimine aittir)'}
                             </span>
                           </div>
                           <span className="font-mono text-slate-700 font-semibold">
-                            ₺{item.individual_amount.toFixed(2)} + ₺{item.common_area_amount.toFixed(2)} = ₺{item.total_amount.toFixed(2)}
+                            {item.common_area_amount > 0
+                              ? `₺${item.individual_amount.toFixed(2)} + ₺${item.common_area_amount.toFixed(2)} = ₺${item.total_amount.toFixed(2)}`
+                              : `₺${item.individual_amount.toFixed(2)}`}
                           </span>
                         </div>
                       </div>

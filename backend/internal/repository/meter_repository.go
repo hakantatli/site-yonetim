@@ -142,10 +142,11 @@ func (r *meterRepository) GetPreviousReadings(ctx context.Context, siteID, meter
 	apts := make([]domain.ApartmentLastReading, len(aptRows))
 	for i, row := range aptRows {
 		apts[i] = domain.ApartmentLastReading{
-			ApartmentID: UUIDToString(row.ApartmentID),
-			DoorNumber:  row.DoorNumber,
-			BlockName:   TextToPtrString(row.BlockName),
-			LastReading: NumericToFloat64(row.LastReading),
+			ApartmentID:  UUIDToString(row.ApartmentID),
+			DoorNumber:   row.DoorNumber,
+			BlockName:    TextToPtrString(row.BlockName),
+			LastReading:  NumericToFloat64(row.LastReading),
+			PreviousDebt: NumericToFloat64(row.PreviousDebt),
 		}
 	}
 

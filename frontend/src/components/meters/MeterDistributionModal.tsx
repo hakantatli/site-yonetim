@@ -25,6 +25,7 @@ interface AptRowState {
   debtorName: string;
   previousReading: number;
   currentReading: number;
+  previousDebt: number;
   notes?: string;
 }
 
@@ -95,17 +96,22 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
       setMainMeterPrevious(prevData.main_meter_previous);
     }
 
-    const prevMap = new Map<string, number>();
+    const prevMap = new Map<string, { lastReading: number; previousDebt: number }>();
     if (prevData?.apartments) {
       for (const p of prevData.apartments) {
-        prevMap.set(p.apartment_id, p.last_reading);
+        prevMap.set(p.apartment_id, {
+          lastReading: p.last_reading,
+          previousDebt: p.previous_debt ?? 0,
+        });
       }
     }
 
     const initialRows: AptRowState[] = apartments
       .filter((apt) => apt.is_active)
       .map((apt) => {
-        const lastReading = prevMap.get(apt.id) ?? 0;
+        const prevInfo = prevMap.get(apt.id);
+        const lastReading = prevInfo?.lastReading ?? 0;
+        const previousDebt = prevInfo?.previousDebt ?? 0;
         let debtor = 'Tanımsız';
         if (apt.tenant_full_name) {
           debtor = `${apt.tenant_full_name} (Kiracı)`;
@@ -120,6 +126,7 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
           debtorName: debtor,
           previousReading: lastReading,
           currentReading: lastReading, // default current = previous (0 consumption initially)
+          previousDebt,
           notes: '',
         };
       });
@@ -151,11 +158,6 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
   const commonAreaCost = useMemo(() => {
     return Math.round(commonAreaConsumption * unitCost * 100) / 100;
   }, [commonAreaConsumption, unitCost]);
-
-  const commonAreaPerApartment = useMemo(() => {
-    if (aptRows.length === 0) return 0;
-    return commonAreaCost / aptRows.length;
-  }, [commonAreaCost, aptRows.length]);
 
   const isExceeding = totalApartmentsConsumption > totalBilledConsumption;
 
@@ -230,10 +232,12 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
       readings,
     };
 
+    const individualTotal = Math.max(0, totalBillAmount - commonAreaCost);
     if (
       window.confirm(
-        `₺${totalBillAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} tutarındaki fatura ` +
-          `${aptRows.length} daireye tüketim oranında dağıtılacak ve borç tahakkukları oluşturulacaktır. Onaylıyor musunuz?`
+        `₺${totalBillAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} tutarındaki faturanın ` +
+          `₺${individualTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} tutarındaki bireysel tüketim payı ` +
+          `${aptRows.length} daireye dağıtılacaktır. (Ortak alan payı ₺${commonAreaCost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} site yönetimine aittir).\n\nOnaylıyor musunuz?`
       )
     ) {
       createMutation.mutate(payload);
@@ -423,12 +427,12 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
                     : 'bg-white border-slate-200/80 text-slate-900'
                 }`}
               >
-                <span className="text-[10px] text-slate-500 font-medium block">Ortak Alan Farkı</span>
+                <span className="text-[10px] text-slate-500 font-medium block">Ortak Alan (Site Yönetimi)</span>
                 <span className="text-sm font-bold font-mono">
                   {commonAreaConsumption.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} {unit}
                 </span>
-                <span className="text-[10px] text-slate-400 block">
-                  (Daire başı: ₺{commonAreaPerApartment.toLocaleString('tr-TR', { minimumFractionDigits: 2 })})
+                <span className="text-[10px] text-amber-600 font-medium block">
+                  (Site Gideri: ₺{commonAreaCost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })})
                 </span>
               </div>
             </div>
@@ -467,7 +471,7 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
                       <th className="py-2.5 px-3 w-32">Son Endeks ({unit})</th>
                       <th className="py-2.5 px-3 text-right">Tüketim</th>
                       <th className="py-2.5 px-3 text-right">Bireysel Pay</th>
-                      <th className="py-2.5 px-3 text-right">Ortak Alan</th>
+                      <th className="py-2.5 px-3 text-right">Önceki Borç</th>
                       <th className="py-2.5 px-3 text-right">Toplam Borç</th>
                     </tr>
                   </thead>
@@ -475,8 +479,8 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
                     {aptRows.map((row, idx) => {
                       const consumption = Math.max(0, row.currentReading - row.previousReading);
                       const individualAmount = Math.round(consumption * unitCost * 100) / 100;
-                      const commonAmount = Math.round(commonAreaPerApartment * 100) / 100;
-                      const totalDebt = individualAmount + commonAmount;
+                      const previousDebt = row.previousDebt || 0;
+                      const totalDebt = individualAmount + previousDebt;
 
                       return (
                         <tr key={row.apartmentId} className="hover:bg-slate-50/60 transition-colors">
@@ -519,8 +523,8 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
                           <td className="py-2 px-3 text-right font-mono text-slate-600">
                             ₺{individualAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                           </td>
-                          <td className="py-2 px-3 text-right font-mono text-slate-500">
-                            ₺{commonAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                          <td className="py-2 px-3 text-right font-mono text-amber-700">
+                            {previousDebt > 0 ? `₺${previousDebt.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '-'}
                           </td>
                           <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">
                             ₺{totalDebt.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
@@ -537,12 +541,11 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
           {/* Modal Footer Controls */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 shrink-0">
             <div className="text-xs text-slate-600">
-              <span className="font-semibold text-slate-800">Fatura Eşleşmesi:</span>{' '}
+              <span className="font-semibold text-slate-800">Fatura Dengesi:</span>{' '}
               {totalBillAmount > 0 && !isExceeding && totalBilledConsumption > 0 ? (
                 <span className="text-emerald-700 font-semibold inline-flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Kuruşu kuruşuna ₺
-                  {totalBillAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} faturayla eşleşti
+                  Daire Payları Toplamı (₺{(totalBillAmount - commonAreaCost).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}) + Ortak Alan (₺{commonAreaCost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}) = ₺{totalBillAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                 </span>
               ) : (
                 <span className="text-slate-400 italic">Gerekli endeks ve fatura tutarını giriniz</span>

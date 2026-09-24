@@ -136,11 +136,6 @@ func (s *meterService) CreateConsumptionPeriod(
 	commonAreaConsumption := math.Round((totalBilledConsumption-totalApartmentsConsumption)*1000) / 1000
 	commonAreaCost := math.Round(commonAreaConsumption*unitCost*100) / 100
 
-	readingCount := len(req.Readings)
-	commonAreaPerApartment := 0.0
-	if readingCount > 0 {
-		commonAreaPerApartment = commonAreaCost / float64(readingCount)
-	}
 
 	// Sitedeki daireleri çek (muhatap belirlemek için)
 	apts, err := s.apartmentRepo.ListApartments(ctx, siteID)
@@ -162,20 +157,10 @@ func (s *meterService) CreateConsumptionPeriod(
 	periodMonthLabel := pMonthTime.Format("01/2006")
 
 	readingsToSave := make([]domain.MeterReading, len(req.Readings))
-	var sumTotalDebts float64
-	var maxConsumptionIdx int
-	var maxConsumption float64 = -1
 
 	for i, rd := range req.Readings {
 		consumption := math.Round((rd.CurrentReading-rd.PreviousReading)*1000) / 1000
 		indAmount := math.Round(consumption*unitCost*100) / 100
-		commAmount := math.Round(commonAreaPerApartment*100) / 100
-		totAmount := indAmount + commAmount
-
-		if consumption > maxConsumption {
-			maxConsumption = consumption
-			maxConsumptionIdx = i
-		}
 
 		apt, ok := aptMap[rd.ApartmentID]
 		var debtorID *string
@@ -209,34 +194,26 @@ func (s *meterService) CreateConsumptionPeriod(
 			CurrentReading:   rd.CurrentReading,
 			Consumption:      consumption,
 			IndividualAmount: indAmount,
-			CommonAreaAmount: commAmount,
-			TotalAmount:      totAmount,
+			CommonAreaAmount: 0,
+			TotalAmount:      indAmount,
 			ReadingDate:      time.Now().Format("2006-01-02"),
 			Notes:            rd.Notes,
 		}
-		sumTotalDebts += totAmount
 	}
 
-	// Kuruş yuvarlama farkını en yüksek tüketime sahip daireye eşitle (böylece toplam %100 faturaya eşit olur)
-	roundingDiff := math.Round((req.TotalBillAmount-sumTotalDebts)*100) / 100
-	if math.Abs(roundingDiff) > 0 && math.Abs(roundingDiff) <= 1.0 && maxConsumptionIdx < len(readingsToSave) {
-		readingsToSave[maxConsumptionIdx].CommonAreaAmount = math.Round((readingsToSave[maxConsumptionIdx].CommonAreaAmount+roundingDiff)*100) / 100
-		readingsToSave[maxConsumptionIdx].TotalAmount = math.Round((readingsToSave[maxConsumptionIdx].TotalAmount+roundingDiff)*100) / 100
-	}
-
-	// Borçları (debts) oluştur
+	// Borçları (debts) oluştur (Ortak alan site yönetimi borcudur, daireye sadece bireysel tüketim tahakkuk eder)
 	for i := range readingsToSave {
 		rd := &readingsToSave[i]
 		if rd.DebtorUserID == nil || *rd.DebtorUserID == "" {
-			continue // Sakin atanmamış boş daireye borç açılmaz veya yöneticiye bildirilir
+			continue // Sakin atanmamış boş daireye borç açılmaz
 		}
 
 		if rd.TotalAmount <= 0 {
-			continue // Tutar 0 ise borç açmaya gerek yok
+			continue // Tüketim 0 ise borç açmaya gerek yok
 		}
 
-		debtDesc := fmt.Sprintf("%s %s Tüketim Bedeli (Bireysel: %.2f %s x ₺%.2f + Ortak Alan Payı: ₺%.2f)",
-			periodMonthLabel, meterType.Name, rd.Consumption, meterType.Unit, unitCost, rd.CommonAreaAmount)
+		debtDesc := fmt.Sprintf("%s %s Tüketim Bedeli (%.2f %s x ₺%.2f)",
+			periodMonthLabel, meterType.Name, rd.Consumption, meterType.Unit, unitCost)
 
 		createdDebt, err := s.debtRepo.Create(ctx, &domain.Debt{
 			SiteID:       siteID,

@@ -107,12 +107,12 @@ export function MeterDistributionDetailModal({
               </div>
 
               <div>
-                <span className="text-[10px] text-slate-500 font-medium block">Ortak Alan Payı</span>
+                <span className="text-[10px] text-slate-500 font-medium block">Ortak Alan (Site Yönetimi)</span>
                 <span className="font-bold text-slate-800 font-mono">
                   {period.common_area_consumption} {period.meter_type_unit}
                 </span>
-                <span className="text-[10px] text-slate-400 block font-mono">
-                  (₺{period.common_area_cost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })})
+                <span className="text-[10px] text-amber-600 block font-mono font-medium">
+                  ₺{period.common_area_cost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} (Site Gideri)
                 </span>
               </div>
             </div>
@@ -129,7 +129,7 @@ export function MeterDistributionDetailModal({
                     <th className="py-2.5 px-3 text-right">Tüketim</th>
                     <th className="py-2.5 px-3 text-right">Bireysel</th>
                     <th className="py-2.5 px-3 text-right">Ortak Alan</th>
-                    <th className="py-2.5 px-3 text-right">Toplam Borç</th>
+                    <th className="py-2.5 px-3 text-right">Tahakkuk Eden</th>
                     <th className="py-2.5 px-3 text-center">Durum</th>
                   </tr>
                 </thead>

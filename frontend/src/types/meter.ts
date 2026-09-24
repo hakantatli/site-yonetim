@@ -69,6 +69,7 @@ export interface ApartmentLastReading {
   door_number: string;
   block_name?: string | null;
   last_reading: number;
+  previous_debt?: number;
 }
 
 export interface PreviousReadingsResponse {

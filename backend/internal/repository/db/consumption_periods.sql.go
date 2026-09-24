@@ -276,16 +276,30 @@ WITH latest_period AS (
     WHERE site_id = $1 AND meter_type_id = $2
     ORDER BY period DESC, created_at DESC
     LIMIT 1
+),
+unpaid_utility_debts AS (
+    SELECT 
+        ds.apartment_id,
+        COALESCE(SUM(ds.remaining), 0)::NUMERIC(10, 2) AS previous_debt
+    FROM debt_summary ds
+    JOIN meter_types mt ON mt.id = $2
+    WHERE ds.site_id = $1 
+      AND ds.type = 'utility' 
+      AND ds.status != 'paid'
+      AND (ds.description ILIKE '%' || mt.name || '%' OR ds.description IS NULL)
+    GROUP BY ds.apartment_id
 )
 SELECT
     a.id AS apartment_id,
     a.door_number,
     b.name AS block_name,
-    COALESCE(r.current_reading, 0)::NUMERIC(12, 3) AS last_reading
+    COALESCE(r.current_reading, 0)::NUMERIC(12, 3) AS last_reading,
+    COALESCE(uud.previous_debt, 0)::NUMERIC(10, 2) AS previous_debt
 FROM apartments a
 LEFT JOIN blocks b ON a.block_id = b.id
 LEFT JOIN latest_period lp ON TRUE
 LEFT JOIN meter_readings r ON r.consumption_period_id = lp.id AND r.apartment_id = a.id
+LEFT JOIN unpaid_utility_debts uud ON uud.apartment_id = a.id
 WHERE a.site_id = $1 AND a.is_active = TRUE
 ORDER BY b.name NULLS FIRST, a.door_number ASC
 `
@@ -296,10 +310,11 @@ type GetLastApartmentReadingsParams struct {
 }
 
 type GetLastApartmentReadingsRow struct {
-	ApartmentID pgtype.UUID    `json:"apartment_id"`
-	DoorNumber  string         `json:"door_number"`
-	BlockName   pgtype.Text    `json:"block_name"`
-	LastReading pgtype.Numeric `json:"last_reading"`
+	ApartmentID  pgtype.UUID    `json:"apartment_id"`
+	DoorNumber   string         `json:"door_number"`
+	BlockName    pgtype.Text    `json:"block_name"`
+	LastReading  pgtype.Numeric `json:"last_reading"`
+	PreviousDebt pgtype.Numeric `json:"previous_debt"`
 }
 
 func (q *Queries) GetLastApartmentReadings(ctx context.Context, arg GetLastApartmentReadingsParams) ([]GetLastApartmentReadingsRow, error) {
@@ -316,6 +331,7 @@ func (q *Queries) GetLastApartmentReadings(ctx context.Context, arg GetLastApart
 			&i.DoorNumber,
 			&i.BlockName,
 			&i.LastReading,
+			&i.PreviousDebt,
 		); err != nil {
 			return nil, err
 		}

@@ -45,13 +45,13 @@ func TestMeterService_CreateConsumptionPeriod_Reconciliation(t *testing.T) {
 	svc := NewMeterService(meterRepo, aptRepo, debtRepo)
 
 	// Fatura: 1000 TL, Ana Sayaç: 100 -> 200 (100 m³ tüketim) -> Birim fiyat = 10 TL/m³
-	// Daire 1: 10 -> 40 (30 m³ tüketim) -> 300 TL
-	// Daire 2: 20 -> 70 (50 m³ tüketim) -> 500 TL
+	// Daire 1: 10 -> 40 (30 m³ tüketim) -> 300 TL (Bireysel Pay)
+	// Daire 2: 20 -> 70 (50 m³ tüketim) -> 500 TL (Bireysel Pay)
 	// Toplam daire tüketimi: 80 m³
-	// Ortak alan: 100 - 80 = 20 m³ -> 200 TL / 2 daire = daire başı 100 TL
-	// Daire 1 toplam: 300 + 100 = 400 TL
-	// Daire 2 toplam: 500 + 100 = 600 TL
-	// Toplam borç: 400 + 600 = 1000 TL (Faturaya tam eşit!)
+	// Ortak alan: 100 - 80 = 20 m³ -> 200 TL (Site Yönetimi borcudur, dairelere paylaştırılmaz)
+	// Daire 1 borç: 300 TL
+	// Daire 2 borç: 500 TL
+	// Toplam oluşturulan borç: 300 + 500 = 800 TL (TotalBillAmount - CommonAreaCost)
 	payload := domain.CreateConsumptionPeriodPayload{
 		MeterTypeID:       "mt-water",
 		Period:            "2026-09",
@@ -75,18 +75,22 @@ func TestMeterService_CreateConsumptionPeriod_Reconciliation(t *testing.T) {
 	if period.CommonAreaConsumption != 20 {
 		t.Fatalf("expected common area consumption 20, got %f", period.CommonAreaConsumption)
 	}
+	if period.CommonAreaCost != 200 {
+		t.Fatalf("expected common area cost 200, got %f", period.CommonAreaCost)
+	}
 	if len(readings) != 2 {
 		t.Fatalf("expected 2 readings, got %d", len(readings))
 	}
 
-	// Verify total debt created equals exact bill amount
+	// Verify total debt created equals individual consumption sum (TotalBillAmount - CommonAreaCost)
 	var totalDebtCreated float64
 	for _, d := range createdDebts {
 		totalDebtCreated += d.Amount
 	}
 
-	if math.Abs(totalDebtCreated-payload.TotalBillAmount) > 0.001 {
-		t.Fatalf("debts sum (%.2f) does not match bill amount (%.2f)", totalDebtCreated, payload.TotalBillAmount)
+	expectedDebtTotal := payload.TotalBillAmount - period.CommonAreaCost
+	if math.Abs(totalDebtCreated-expectedDebtTotal) > 0.001 {
+		t.Fatalf("debts sum (%.2f) does not match expected individual total (%.2f)", totalDebtCreated, expectedDebtTotal)
 	}
 }
 

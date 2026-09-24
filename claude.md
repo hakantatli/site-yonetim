@@ -155,16 +155,16 @@
   - Her daire için ilk ve son endeks girilir (bir önceki dönemin son endeksi sistem tarafından otomatik ilk endeks olarak getirilir).
   - `Daire Tüketimi = Son Endeks - İlk Endeks`.
   - `Daire Bireysel Tüketim Bedeli = Daire Tüketimi * Birim Fiyat`.
-- **Ortak Alan Tüketimi ve Eşit Paylaşım:**
+- **Ortak Alan Tüketimi (Site Yönetimi Borcu):**
   - `Ortak Alan Tüketimi = Fatura Toplam Tüketimi - Tüm Dairelerin Toplam Tüketimi`.
   - `Ortak Alan Bedeli = Ortak Alan Tüketimi * Birim Fiyat`.
-  - Ortak alan bedeli sitedeki tüm aktif dairelere eşit paylaştırılır: `Daire Başı Ortak Alan Tutarı = Ortak Alan Bedeli / Aktif Daire Sayısı`.
-- **Toplam Borç Tahakkuku ve Kuruş Dengeleme:**
-  - Her daire için `Toplam Tutar = Daire Bireysel Tüketim Bedeli + Daire Başı Ortak Alan Tutarı`.
-  - Bölme ve yuvarlama sonucu oluşabilecek kuruş farkı (genellikle 0.01 - 0.03 ₺), sistem tarafından en yüksek tüketimi yapan daireye otomatik yansıtılarak `sum(daire_borçları) == fatura_tutarı` eşitliği %100 kuruşu kuruşuna sağlanır.
+  - Ortak alan bedeli bina / site yönetiminin kendi gideridir; dairelere paylaştırılıp dairelerin borcuna eklenmez.
+- **Daire Borç Tahakkuku ve Toplam Borç Mantığı:**
+  - Daireye bu dönem için tahakkuk eden yeni borç tutarı doğrudan `Daire Bireysel Tüketim Bedeli`dir (`Daire Tüketimi * Birim Fiyat`).
+  - Sayaç okuma dağıtım tablosundaki `Toplam Borç`: Dairenin varsa daha önceki aylardan kalan ödenmemiş su/sayaç borcu ile bu dönem yeni dağıtılan bireysel tüketim borcunun toplamıdır (`Toplam Borç = Varsa Önceki Su Borcu + Yeni Bireysel Dağıtım Borcu`).
   - Borç kaydı `utility` türünde açılır ve muhatabı kiracı varsa kiracıya, daire boşsa ev sahibine tahakkuk eder.
 - **Şeffaf Görüntüleme:**
   - **Yönetici Paneli:** Tüm geçmiş dönemlerin ana sayaç, daire sayaçları, birim maliyet ve ortak alan dökümleri listelenir ve detay modalı ile görüntülenebilir.
-  - **Sakin Paneli:** Sakinler kendi dairelerinin ilk/son endeksini, tüketimini, birim fiyatını, bina ana fatura tutarını ve ortak alandan kendilerine düşen payı şeffafça inceler.
+  - **Sakin Paneli:** Sakinler kendi dairelerinin ilk/son endeksini, tüketimini, birim fiyatını, bina ana fatura tutarını ve bina ortak alan tüketimini şeffafça inceler.
 
 
