@@ -173,7 +173,7 @@ LEFT JOIN blocks b ON b.id = a.block_id
 LEFT JOIN users u_owner ON u_owner.id = a.owner_user_id
 LEFT JOIN users u_tenant ON u_tenant.id = a.tenant_user_id
 WHERE a.site_id = $1 AND a.is_active = TRUE
-ORDER BY b.name ASC NULLS FIRST, a.door_number ASC
+ORDER BY b.name ASC NULLS FIRST, NULLIF(regexp_replace(a.door_number, '\D', '', 'g'), '')::INT ASC NULLS LAST, a.door_number ASC
 `
 
 type ListApartmentsBySiteIDRow struct {

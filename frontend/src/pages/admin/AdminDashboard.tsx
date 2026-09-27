@@ -135,10 +135,18 @@ export function AdminDashboard() {
   const [aptError, setAptError] = useState<string | null>(null);
 
   // Queries
-  const { data: apartments = [], isLoading: isLoadingApts } = useQuery({
+  const { data: rawApartments = [], isLoading: isLoadingApts } = useQuery({
     queryKey: ['admin', 'apartments', siteIdQuery],
     queryFn: () => adminApi.listApartments(siteIdQuery),
   });
+
+  const apartments = useMemo(() => {
+    return [...rawApartments].sort((a, b) => {
+      const blockCompare = (a.block_name || '').localeCompare(b.block_name || '', 'tr', { numeric: true });
+      if (blockCompare !== 0) return blockCompare;
+      return a.door_number.localeCompare(b.door_number, 'tr', { numeric: true });
+    });
+  }, [rawApartments]);
 
   const { data: blocks = [], isLoading: isLoadingBlocks } = useQuery({
     queryKey: ['admin', 'blocks', siteIdQuery],

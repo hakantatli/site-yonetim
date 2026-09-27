@@ -108,6 +108,11 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
 
     const initialRows: AptRowState[] = apartments
       .filter((apt) => apt.is_active)
+      .sort((a, b) => {
+        const blockCompare = (a.block_name || '').localeCompare(b.block_name || '', 'tr', { numeric: true });
+        if (blockCompare !== 0) return blockCompare;
+        return a.door_number.localeCompare(b.door_number, 'tr', { numeric: true });
+      })
       .map((apt) => {
         const prevInfo = prevMap.get(apt.id);
         const lastReading = prevInfo?.lastReading ?? 0;

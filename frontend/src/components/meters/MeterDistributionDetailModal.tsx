@@ -31,7 +31,11 @@ export function MeterDistributionDetailModal({
   if (!periodId) return null;
 
   const period = data?.period;
-  const readings = data?.readings || [];
+  const readings = [...(data?.readings || [])].sort((a, b) => {
+    const blockCompare = (a.block_name || '').localeCompare(b.block_name || '', 'tr', { numeric: true });
+    if (blockCompare !== 0) return blockCompare;
+    return a.door_number.localeCompare(b.door_number, 'tr', { numeric: true });
+  });
 
   const handlePrint = () => {
     window.print();

@@ -301,7 +301,7 @@ LEFT JOIN latest_period lp ON TRUE
 LEFT JOIN meter_readings r ON r.consumption_period_id = lp.id AND r.apartment_id = a.id
 LEFT JOIN unpaid_utility_debts uud ON uud.apartment_id = a.id
 WHERE a.site_id = $1 AND a.is_active = TRUE
-ORDER BY b.name NULLS FIRST, a.door_number ASC
+ORDER BY b.name NULLS FIRST, NULLIF(regexp_replace(a.door_number, '\D', '', 'g'), '')::INT ASC NULLS LAST, a.door_number ASC
 `
 
 type GetLastApartmentReadingsParams struct {
@@ -548,7 +548,7 @@ LEFT JOIN blocks b ON a.block_id = b.id
 LEFT JOIN users u ON mr.debtor_user_id = u.id
 LEFT JOIN debts d ON mr.debt_id = d.id
 WHERE mr.consumption_period_id = $1
-ORDER BY b.name NULLS FIRST, a.door_number ASC
+ORDER BY b.name NULLS FIRST, NULLIF(regexp_replace(a.door_number, '\D', '', 'g'), '')::INT ASC NULLS LAST, a.door_number ASC
 `
 
 type ListMeterReadingsByPeriodIDRow struct {
