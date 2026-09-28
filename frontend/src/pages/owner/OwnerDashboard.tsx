@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ownerApi, type CreateSitePayload } from '../../api/owner';
+import { residentApi } from '../../api/resident';
 import { useAuthStore } from '../../store/auth';
 import { authApi } from '../../api/auth';
 import {
@@ -17,6 +18,7 @@ import {
   X,
   Loader2,
   Sparkles,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 export function OwnerDashboard() {
@@ -36,6 +38,11 @@ export function OwnerDashboard() {
   const { data: sites = [], isLoading } = useQuery({
     queryKey: ['owner', 'sites'],
     queryFn: ownerApi.listSites,
+  });
+
+  const { data: myApartments = [] } = useQuery({
+    queryKey: ['resident', 'my-apartments'],
+    queryFn: residentApi.getMyApartments,
   });
 
   const createMutation = useMutation({
@@ -104,7 +111,19 @@ export function OwnerDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {myApartments.length > 0 && (
+              <button
+                onClick={() => navigate(`/resident/dashboard?site_id=${myApartments[0].site_id}`)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 py-1.5 px-3 rounded-xl transition-colors cursor-pointer"
+                title="Malik / Sakin görünümüne geç"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>
+                  Malik Görünümü (No: {myApartments[0].door_number})
+                </span>
+              </button>
+            )}
             <div className="hidden sm:flex items-center gap-2 bg-slate-100 py-1.5 px-3 rounded-lg text-xs font-medium text-slate-700">
               <Shield className="w-4 h-4 text-blue-600" />
               <span>{user?.full_name}</span>

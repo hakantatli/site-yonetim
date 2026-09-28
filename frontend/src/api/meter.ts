@@ -91,8 +91,10 @@ export const meterApi = {
   },
 
   // Resident Meter History
-  getResidentMeterHistory: async (): Promise<ResidentMeterHistoryItem[]> => {
-    const { data } = await apiClient.get<ResidentMeterHistoryItem[]>('/resident/meters/history');
+  getResidentMeterHistory: async (siteId?: string): Promise<ResidentMeterHistoryItem[]> => {
+    const { data } = await apiClient.get<ResidentMeterHistoryItem[]>('/resident/meters/history', {
+      params: siteId ? { site_id: siteId } : undefined,
+    });
     return data;
   },
 };

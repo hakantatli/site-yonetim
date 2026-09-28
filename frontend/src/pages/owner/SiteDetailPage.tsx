@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ownerApi, type CreateAdminPayload } from '../../api/owner';
+import { residentApi } from '../../api/resident';
 import { maskPhoneInput, cleanPhone, formatPhone } from '../../utils/phone';
 import {
   ArrowLeft,
@@ -21,6 +22,7 @@ import {
   ExternalLink,
   MapPin,
   Calendar,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 export function SiteDetailPage() {
@@ -45,6 +47,11 @@ export function SiteDetailPage() {
     queryKey: ['owner', 'site', id],
     queryFn: () => ownerApi.getSiteDetails(id!),
     enabled: !!id,
+  });
+
+  const { data: myApartments = [] } = useQuery({
+    queryKey: ['resident', 'my-apartments'],
+    queryFn: residentApi.getMyApartments,
   });
 
   const updateLimitMutation = useMutation({
@@ -129,6 +136,7 @@ export function SiteDetailPage() {
     100,
     Math.round((site.apartment_count / (site.apartment_limit || 10)) * 100)
   );
+  const mySiteApt = myApartments.find((a) => a.site_id === site.id);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
@@ -144,6 +152,15 @@ export function SiteDetailPage() {
           </button>
 
           <div className="flex items-center gap-3">
+            {mySiteApt && (
+              <button
+                onClick={() => navigate(`/resident/dashboard?site_id=${site.id}`)}
+                className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-semibold border border-emerald-200 transition-colors cursor-pointer"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>Malik Görünümü (No: {mySiteApt.door_number})</span>
+              </button>
+            )}
             <button
               onClick={() => navigate(`/admin/dashboard?siteId=${site.id}`)}
               className="flex items-center gap-2 px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-semibold border border-indigo-200 transition-colors cursor-pointer"

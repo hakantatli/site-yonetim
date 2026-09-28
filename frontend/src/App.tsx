@@ -53,8 +53,8 @@ export function App() {
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
           </Route>
 
-          {/* Resident Protected Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['resident']} />}>
+          {/* Resident Protected Routes (also accessible by owner/admin when switching to resident profile) */}
+          <Route element={<ProtectedRoute allowedRoles={['resident', 'admin', 'owner']} />}>
             <Route path="/resident/dashboard" element={<ResidentDashboard />} />
           </Route>
 

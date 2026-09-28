@@ -64,3 +64,16 @@ export interface TenantHistoryItem {
   notes?: string | null;
   created_at: string;
 }
+
+export interface UserApartment {
+  id: string;
+  site_id: string;
+  site_name: string;
+  block_id?: string | null;
+  block_name?: string | null;
+  door_number: string;
+  floor?: number | null;
+  is_owner: boolean;
+  is_tenant: boolean;
+}
+

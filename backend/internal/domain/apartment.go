@@ -75,3 +75,16 @@ type TenantHistoryItem struct {
 	Notes          *string    `json:"notes,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 }
+
+type UserApartment struct {
+	ID         string  `json:"id"`
+	SiteID     string  `json:"site_id"`
+	SiteName   string  `json:"site_name"`
+	BlockID    *string `json:"block_id,omitempty"`
+	BlockName  *string `json:"block_name,omitempty"`
+	DoorNumber string  `json:"door_number"`
+	Floor      *int32  `json:"floor,omitempty"`
+	IsOwner    bool    `json:"is_owner"`
+	IsTenant   bool    `json:"is_tenant"`
+}
+

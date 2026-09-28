@@ -46,8 +46,10 @@ export const announcementApi = {
     await apiClient.delete(`${base}/announcements/${id}${queryString}`);
   },
 
-  getResidentAnnouncements: async (): Promise<Announcement[]> => {
-    const { data } = await apiClient.get<Announcement[]>('/resident/announcements');
+  getResidentAnnouncements: async (siteId?: string): Promise<Announcement[]> => {
+    const { data } = await apiClient.get<Announcement[]>('/resident/announcements', {
+      params: siteId ? { site_id: siteId } : undefined,
+    });
     return data;
   },
 };

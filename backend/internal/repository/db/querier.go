@@ -77,6 +77,7 @@ type Querier interface {
 	ListAllSiteIDs(ctx context.Context) ([]ListAllSiteIDsRow, error)
 	ListAnnouncementsBySite(ctx context.Context, siteID pgtype.UUID) ([]ListAnnouncementsBySiteRow, error)
 	ListApartmentsBySiteID(ctx context.Context, siteID pgtype.UUID) ([]ListApartmentsBySiteIDRow, error)
+	ListApartmentsByUserID(ctx context.Context, ownerUserID pgtype.UUID) ([]ListApartmentsByUserIDRow, error)
 	ListBlocksBySiteID(ctx context.Context, siteID pgtype.UUID) ([]Blocks, error)
 	ListConsumptionPeriodsBySite(ctx context.Context, siteID pgtype.UUID) ([]ListConsumptionPeriodsBySiteRow, error)
 	ListDebtsBySite(ctx context.Context, arg ListDebtsBySiteParams) ([]ListDebtsBySiteRow, error)

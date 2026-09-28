@@ -111,7 +111,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService, loginLimiter)
 	ownerHandler := handler.NewOwnerHandler(siteService)
 	adminHandler := handler.NewAdminHandler(apartmentService, dueService, paymentService, expenseService, meterService, announcementService)
-	residentHandler := handler.NewResidentHandler(expenseService, meterService, announcementService, dueService, paymentService)
+	residentHandler := handler.NewResidentHandler(apartmentService, expenseService, meterService, announcementService, dueService, paymentService)
 
 	r := chi.NewRouter()
 

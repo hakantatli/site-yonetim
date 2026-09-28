@@ -299,5 +299,50 @@ func TestApartmentService_UpdateResident(t *testing.T) {
 			t.Fatalf("expected ErrResidentForbidden, got %v", err)
 		}
 	})
+
+	t.Run("owner user with nil SiteID who owns an apartment in site can be updated", func(t *testing.T) {
+		ownerUserID := "owner-user-1"
+		ownerUser := &domain.User{
+			ID:       ownerUserID,
+			SiteID:   nil,
+			FullName: "Sistem Sahibi (Owner)",
+			Phone:    "05551234567",
+			Role:     domain.RoleOwner,
+		}
+		aptRepo := &mockApartmentRepository{
+			listApartmentsFn: func(ctx context.Context, sID string) ([]domain.Apartment, error) {
+				return []domain.Apartment{
+					{ID: "apt-1", SiteID: siteID, DoorNumber: "1", OwnerUserID: &ownerUserID},
+				}, nil
+			},
+		}
+		userRepo := &mockUserRepository{
+			getByIDFn: func(ctx context.Context, id string) (*domain.User, error) {
+				return ownerUser, nil
+			},
+			updateUserDetailsFn: func(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error) {
+				return &domain.User{
+					ID:       id,
+					SiteID:   nil,
+					FullName: fullName,
+					Phone:    phone,
+					Email:    email,
+					Role:     domain.RoleOwner,
+				}, nil
+			},
+		}
+
+		svc := NewApartmentService(aptRepo, &mockSiteRepository{}, userRepo)
+		updated, err := svc.UpdateResident(ctx, siteID, ownerUserID, domain.UpdateResidentRequest{
+			FullName: "Hakan Tatlı",
+			Phone:    "05551234567",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error updating owner user: %v", err)
+		}
+		if updated.FullName != "Hakan Tatlı" {
+			t.Fatalf("expected FullName 'Hakan Tatlı', got %s", updated.FullName)
+		}
+	})
 }
 

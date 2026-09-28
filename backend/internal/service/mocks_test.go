@@ -198,6 +198,7 @@ type mockApartmentRepository struct {
 	listTenantHistoryFn        func(ctx context.Context, apartmentID string) ([]domain.TenantHistoryItem, error)
 	transferOpenDebtsToOwnerFn func(ctx context.Context, apartmentID string, oldDebtorID string, newDebtorID string) error
 	deleteOpenDebtsByDebtorFn  func(ctx context.Context, apartmentID string, debtorID string) error
+	listApartmentsByUserIDFn   func(ctx context.Context, userID string) ([]domain.UserApartment, error)
 }
 
 func (m *mockApartmentRepository) CreateBlock(ctx context.Context, siteID string, name string) (*domain.Block, error) {
@@ -317,6 +318,13 @@ func (m *mockApartmentRepository) DeleteOpenDebtsByDebtor(ctx context.Context, a
 		return m.deleteOpenDebtsByDebtorFn(ctx, apartmentID, debtorID)
 	}
 	return nil
+}
+
+func (m *mockApartmentRepository) ListApartmentsByUserID(ctx context.Context, userID string) ([]domain.UserApartment, error) {
+	if m.listApartmentsByUserIDFn != nil {
+		return m.listApartmentsByUserIDFn(ctx, userID)
+	}
+	return nil, nil
 }
 
 // MockDueRepository

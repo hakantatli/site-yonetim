@@ -7,6 +7,7 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   setAuth: (data: TokenPairResponse) => void;
+  updateUser: (partial: Partial<User>) => void;
   logout: () => void;
 }
 
@@ -53,6 +54,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
       isAuthenticated: true,
+    });
+  },
+
+  updateUser: (partial: Partial<User>) => {
+    set((state) => {
+      if (!state.user) return state;
+      const updated = { ...state.user, ...partial };
+      setItem('auth_user', JSON.stringify(updated));
+      return { user: updated };
     });
   },
 

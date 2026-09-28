@@ -33,6 +33,7 @@ type ApartmentRepository interface {
 	SetApartmentOwner(ctx context.Context, id string, siteID string, ownerUserID string) error
 	SetApartmentTenant(ctx context.Context, id string, siteID string, tenantUserID string) error
 	RemoveApartmentTenant(ctx context.Context, id string, siteID string) error
+	ListApartmentsByUserID(ctx context.Context, userID string) ([]domain.UserApartment, error)
 
 	// Tenant History & Debts
 	CreateTenantHistory(ctx context.Context, apartmentID string, tenantUserID string, startedAt time.Time, recordedBy *string) error
@@ -306,3 +307,32 @@ func (r *pgApartmentRepository) DeleteOpenDebtsByDebtor(ctx context.Context, apa
 		DebtorUserID: StringToUUID(debtorID),
 	})
 }
+
+func (r *pgApartmentRepository) ListApartmentsByUserID(ctx context.Context, userID string) ([]domain.UserApartment, error) {
+	rows, err := r.queries.ListApartmentsByUserID(ctx, StringToUUID(userID))
+	if err != nil {
+		return nil, err
+	}
+	items := make([]domain.UserApartment, 0, len(rows))
+	for _, row := range rows {
+		var floor *int32
+		if row.Floor.Valid {
+			floor = &row.Floor.Int32
+		}
+		ownerID := UUIDToPtrString(row.OwnerUserID)
+		tenantID := UUIDToPtrString(row.TenantUserID)
+		items = append(items, domain.UserApartment{
+			ID:         UUIDToString(row.ID),
+			SiteID:     UUIDToString(row.SiteID),
+			SiteName:   row.SiteName,
+			BlockID:    UUIDToPtrString(row.BlockID),
+			BlockName:  TextToPtrString(row.BlockName),
+			DoorNumber: row.DoorNumber,
+			Floor:      floor,
+			IsOwner:    ownerID != nil && *ownerID == userID,
+			IsTenant:   tenantID != nil && *tenantID == userID,
+		})
+	}
+	return items, nil
+}
+

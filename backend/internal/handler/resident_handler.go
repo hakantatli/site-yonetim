@@ -10,6 +10,7 @@ import (
 )
 
 type ResidentHandler struct {
+	apartmentService    service.ApartmentService
 	expenseService      service.ExpenseService
 	meterService        service.MeterService
 	announcementService service.AnnouncementService
@@ -18,6 +19,7 @@ type ResidentHandler struct {
 }
 
 func NewResidentHandler(
+	apartmentService service.ApartmentService,
 	expenseService service.ExpenseService,
 	meterService service.MeterService,
 	announcementService service.AnnouncementService,
@@ -25,6 +27,7 @@ func NewResidentHandler(
 	paymentService service.PaymentService,
 ) *ResidentHandler {
 	return &ResidentHandler{
+		apartmentService:    apartmentService,
 		expenseService:      expenseService,
 		meterService:        meterService,
 		announcementService: announcementService,
@@ -35,6 +38,9 @@ func NewResidentHandler(
 
 func (h *ResidentHandler) Routes() chi.Router {
 	r := chi.NewRouter()
+
+	// Resident apartments (for profile/view switching and multi-apartment support)
+	r.Get("/me/apartments", h.ListMyApartments)
 
 	// Treasury / Transparent Cashflow for residents
 	r.Get("/treasury", h.GetTreasurySummary)
@@ -52,10 +58,62 @@ func (h *ResidentHandler) Routes() chi.Router {
 	return r
 }
 
-func (h *ResidentHandler) ListMyDebts(w http.ResponseWriter, r *http.Request) {
+func (h *ResidentHandler) resolveSiteID(r *http.Request) (string, *service.JWTClaims, bool) {
 	claims, ok := middleware.GetClaims(r.Context())
-	if !ok || claims.SiteID == nil || *claims.SiteID == "" {
-		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site bulunamadı"})
+	if !ok {
+		return "", nil, false
+	}
+
+	querySiteID := r.URL.Query().Get("site_id")
+	if querySiteID != "" {
+		if claims.Role == domain.RoleOwner {
+			return querySiteID, claims, true
+		}
+		if claims.SiteID != nil && *claims.SiteID == querySiteID {
+			return querySiteID, claims, true
+		}
+		apts, err := h.apartmentService.ListUserApartments(r.Context(), claims.UserID)
+		if err == nil {
+			for _, a := range apts {
+				if a.SiteID == querySiteID {
+					return querySiteID, claims, true
+				}
+			}
+		}
+	}
+
+	if claims.SiteID != nil && *claims.SiteID != "" {
+		return *claims.SiteID, claims, true
+	}
+
+	apts, err := h.apartmentService.ListUserApartments(r.Context(), claims.UserID)
+	if err == nil && len(apts) > 0 {
+		return apts[0].SiteID, claims, true
+	}
+
+	return "", claims, false
+}
+
+func (h *ResidentHandler) ListMyApartments(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok {
+		respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "oturum doğrulanamadı"})
+		return
+	}
+
+	apartments, err := h.apartmentService.ListUserApartments(r.Context(), claims.UserID)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, apartments)
+}
+
+func (h *ResidentHandler) ListMyDebts(w http.ResponseWriter, r *http.Request) {
+	siteID, claims, ok := h.resolveSiteID(r)
+	if !ok || siteID == "" {
+		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site veya daire bulunamadı"})
 		return
 	}
 
@@ -63,7 +121,7 @@ func (h *ResidentHandler) ListMyDebts(w http.ResponseWriter, r *http.Request) {
 		DebtorUserID: &claims.UserID,
 	}
 
-	debts, err := h.dueService.ListDebts(r.Context(), *claims.SiteID, filter)
+	debts, err := h.dueService.ListDebts(r.Context(), siteID, filter)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
@@ -73,9 +131,9 @@ func (h *ResidentHandler) ListMyDebts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ResidentHandler) ListMyPayments(w http.ResponseWriter, r *http.Request) {
-	claims, ok := middleware.GetClaims(r.Context())
-	if !ok || claims.SiteID == nil || *claims.SiteID == "" {
-		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site bulunamadı"})
+	siteID, claims, ok := h.resolveSiteID(r)
+	if !ok || siteID == "" {
+		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site veya daire bulunamadı"})
 		return
 	}
 
@@ -83,7 +141,7 @@ func (h *ResidentHandler) ListMyPayments(w http.ResponseWriter, r *http.Request)
 		DebtorUserID: &claims.UserID,
 	}
 
-	payments, err := h.paymentService.ListPayments(r.Context(), *claims.SiteID, filter)
+	payments, err := h.paymentService.ListPayments(r.Context(), siteID, filter)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
@@ -93,13 +151,13 @@ func (h *ResidentHandler) ListMyPayments(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *ResidentHandler) GetTreasurySummary(w http.ResponseWriter, r *http.Request) {
-	claims, ok := middleware.GetClaims(r.Context())
-	if !ok || claims.SiteID == nil || *claims.SiteID == "" {
-		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site bulunamadı"})
+	siteID, _, ok := h.resolveSiteID(r)
+	if !ok || siteID == "" {
+		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site veya daire bulunamadı"})
 		return
 	}
 
-	summary, err := h.expenseService.GetTreasurySummary(r.Context(), *claims.SiteID)
+	summary, err := h.expenseService.GetTreasurySummary(r.Context(), siteID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
@@ -109,13 +167,13 @@ func (h *ResidentHandler) GetTreasurySummary(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *ResidentHandler) GetResidentMeterHistory(w http.ResponseWriter, r *http.Request) {
-	claims, ok := middleware.GetClaims(r.Context())
-	if !ok || claims.SiteID == nil || *claims.SiteID == "" {
-		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site bulunamadı"})
+	siteID, claims, ok := h.resolveSiteID(r)
+	if !ok || siteID == "" {
+		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site veya daire bulunamadı"})
 		return
 	}
 
-	history, err := h.meterService.GetResidentMeterHistory(r.Context(), claims.UserID, *claims.SiteID)
+	history, err := h.meterService.GetResidentMeterHistory(r.Context(), claims.UserID, siteID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
@@ -125,13 +183,13 @@ func (h *ResidentHandler) GetResidentMeterHistory(w http.ResponseWriter, r *http
 }
 
 func (h *ResidentHandler) ListAnnouncements(w http.ResponseWriter, r *http.Request) {
-	claims, ok := middleware.GetClaims(r.Context())
-	if !ok || claims.SiteID == nil || *claims.SiteID == "" {
-		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site bulunamadı"})
+	siteID, _, ok := h.resolveSiteID(r)
+	if !ok || siteID == "" {
+		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site veya daire bulunamadı"})
 		return
 	}
 
-	announcements, err := h.announcementService.ListAnnouncements(r.Context(), *claims.SiteID)
+	announcements, err := h.announcementService.ListAnnouncements(r.Context(), siteID)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return

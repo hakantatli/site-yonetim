@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth';
 import { authApi } from '../../api/auth';
@@ -29,12 +29,30 @@ import {
   Receipt,
   Megaphone,
   CreditCard,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 export function ResidentDashboard() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'debts' | 'treasury' | 'meters' | 'announcements' | 'overview'>('debts');
+
+  const { data: myApartments = [] } = useQuery({
+    queryKey: ['resident', 'my-apartments'],
+    queryFn: residentApi.getMyApartments,
+  });
+
+  const activeSiteId =
+    searchParams.get('site_id') || myApartments[0]?.site_id || user?.site_id || undefined;
+
+  const currentSiteApartments = activeSiteId
+    ? myApartments.filter((a) => a.site_id === activeSiteId)
+    : myApartments;
+
+  const uniqueSites = Array.from(
+    new Map(myApartments.map((a) => [a.site_id, { id: a.site_id, name: a.site_name }])).values()
+  );
 
   const handleLogout = async () => {
     await authApi.logout();
@@ -43,33 +61,33 @@ export function ResidentDashboard() {
   };
 
   const { data: treasuryData, isLoading: isLoadingTreasury } = useQuery({
-    queryKey: ['resident', 'treasury'],
-    queryFn: () => expenseApi.getResidentTreasury(),
-    enabled: activeTab === 'treasury',
+    queryKey: ['resident', 'treasury', activeSiteId],
+    queryFn: () => expenseApi.getResidentTreasury(activeSiteId),
+    enabled: activeTab === 'treasury' && !!activeSiteId,
   });
 
   const { data: meterHistory, isLoading: isLoadingMeters } = useQuery({
-    queryKey: ['resident', 'meter-history'],
-    queryFn: () => meterApi.getResidentMeterHistory(),
-    enabled: activeTab === 'meters',
+    queryKey: ['resident', 'meter-history', activeSiteId],
+    queryFn: () => meterApi.getResidentMeterHistory(activeSiteId),
+    enabled: activeTab === 'meters' && !!activeSiteId,
   });
 
   const { data: announcements = [], isLoading: isLoadingAnnouncements } = useQuery({
-    queryKey: ['resident', 'announcements'],
-    queryFn: () => announcementApi.getResidentAnnouncements(),
-    enabled: activeTab === 'announcements',
+    queryKey: ['resident', 'announcements', activeSiteId],
+    queryFn: () => announcementApi.getResidentAnnouncements(activeSiteId),
+    enabled: activeTab === 'announcements' && !!activeSiteId,
   });
 
   const { data: debts = [], isLoading: isLoadingDebts } = useQuery({
-    queryKey: ['resident', 'debts'],
-    queryFn: () => residentApi.getResidentDebts(),
-    enabled: activeTab === 'debts',
+    queryKey: ['resident', 'debts', activeSiteId],
+    queryFn: () => residentApi.getResidentDebts(activeSiteId),
+    enabled: activeTab === 'debts' && !!activeSiteId,
   });
 
   const { data: payments = [], isLoading: isLoadingPayments } = useQuery({
-    queryKey: ['resident', 'payments'],
-    queryFn: () => residentApi.getResidentPayments(),
-    enabled: activeTab === 'debts',
+    queryKey: ['resident', 'payments', activeSiteId],
+    queryFn: () => residentApi.getResidentPayments(activeSiteId),
+    enabled: activeTab === 'debts' && !!activeSiteId,
   });
 
   const getRoleLabel = (role?: string) => {
@@ -77,9 +95,9 @@ export function ResidentDashboard() {
       case 'resident':
         return 'Sakin (Kat Maliki / Kiracı)';
       case 'admin':
-        return 'Site Yöneticisi';
+        return 'Site Yöneticisi (Malik Görünümü)';
       case 'owner':
-        return 'Sistem Yöneticisi (Owner)';
+        return 'Sistem Sahibi (Malik Görünümü)';
       default:
         return 'Sakin';
     }
@@ -96,11 +114,47 @@ export function ResidentDashboard() {
             </div>
             <div>
               <h1 className="font-bold text-slate-900 text-base leading-tight">Sakin Portalı</h1>
-              <p className="text-[11px] text-slate-400">Site Yönetim & Şeffaf Kasa</p>
+              <p className="text-[11px] text-slate-400">
+                {currentSiteApartments[0]?.site_name
+                  ? `${currentSiteApartments[0].site_name} — Şeffaf Kasa & Daire Takibi`
+                  : 'Site Yönetim & Şeffaf Kasa'}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {user?.role === 'owner' && (
+              <>
+                {activeSiteId && (
+                  <button
+                    onClick={() => navigate(`/admin/dashboard?siteId=${activeSiteId}`)}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 py-1.5 px-3 rounded-xl transition-colors cursor-pointer"
+                    title="Bu sitenin yönetici paneline geç"
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Yönetici Paneli</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => navigate('/owner/sites')}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 py-1.5 px-3 rounded-xl transition-colors cursor-pointer"
+                  title="Owner paneline dön"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  <span>Owner Paneli</span>
+                </button>
+              </>
+            )}
+            {user?.role === 'admin' && (
+              <button
+                onClick={() => navigate('/admin/dashboard')}
+                className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 py-1.5 px-3 rounded-xl transition-colors cursor-pointer"
+                title="Yönetici paneline dön"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>Yönetici Paneli</span>
+              </button>
+            )}
             <div className="hidden sm:flex flex-col text-right">
               <span className="text-xs font-bold text-slate-900">{user?.full_name}</span>
               <span className="text-[11px] text-emerald-600 font-medium">{getRoleLabel(user?.role)}</span>
@@ -121,10 +175,37 @@ export function ResidentDashboard() {
         {/* Hoş Geldiniz Kartı */}
         <div className="bg-gradient-to-r from-emerald-800 to-teal-700 text-white rounded-3xl p-6 sm:p-8 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-xs text-xs font-semibold text-emerald-200">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Şeffaf ve Güvenilir Yönetim</span>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-xs text-xs font-semibold text-emerald-200">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Şeffaf ve Güvenilir Yönetim</span>
+                </div>
+                {currentSiteApartments.map((apt) => (
+                  <span
+                    key={apt.id}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-white text-xs font-bold"
+                  >
+                    <Home className="w-3.5 h-3.5" />
+                    <span>
+                      {apt.site_name} — {apt.block_name ? `${apt.block_name} ` : ''}No: {apt.door_number} (
+                      {apt.is_owner ? 'Kat Maliki' : 'Kiracı'})
+                    </span>
+                  </span>
+                ))}
+                {uniqueSites.length > 1 && (
+                  <select
+                    value={activeSiteId || ''}
+                    onChange={(e) => setSearchParams({ site_id: e.target.value })}
+                    className="bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full border border-white/30 focus:outline-hidden cursor-pointer"
+                  >
+                    {uniqueSites.map((s) => (
+                      <option key={s.id} value={s.id} className="text-slate-900">
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <h2 className="text-xl sm:text-2xl font-black tracking-tight">
                 Hoş Geldiniz, {user?.full_name}

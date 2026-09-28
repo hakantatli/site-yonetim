@@ -87,8 +87,10 @@ export const expenseApi = {
     return data;
   },
 
-  getResidentTreasury: async (): Promise<TreasurySummary> => {
-    const { data } = await apiClient.get<TreasurySummary>('/resident/treasury');
+  getResidentTreasury: async (siteId?: string): Promise<TreasurySummary> => {
+    const { data } = await apiClient.get<TreasurySummary>('/resident/treasury', {
+      params: siteId ? { site_id: siteId } : undefined,
+    });
     return data;
   },
 

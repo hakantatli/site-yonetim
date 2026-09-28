@@ -46,6 +46,7 @@ type ApartmentService interface {
 	RemoveTenant(ctx context.Context, siteID string, apartmentID string, req domain.RemoveTenantRequest) (*domain.Apartment, error)
 	ListTenantHistory(ctx context.Context, apartmentID string) ([]domain.TenantHistoryItem, error)
 	UpdateResident(ctx context.Context, siteID string, residentID string, req domain.UpdateResidentRequest) (*domain.User, error)
+	ListUserApartments(ctx context.Context, userID string) ([]domain.UserApartment, error)
 }
 
 type apartmentService struct {
@@ -256,6 +257,10 @@ func (s *apartmentService) ListTenantHistory(ctx context.Context, apartmentID st
 	return s.apartmentRepo.ListTenantHistory(ctx, apartmentID)
 }
 
+func (s *apartmentService) ListUserApartments(ctx context.Context, userID string) ([]domain.UserApartment, error) {
+	return s.apartmentRepo.ListApartmentsByUserID(ctx, userID)
+}
+
 // Helper to find or create resident
 func (s *apartmentService) findOrCreateResident(ctx context.Context, siteID string, res domain.ResidentInput) (string, error) {
 	res.Phone = domain.CleanPhone(res.Phone)
@@ -265,6 +270,15 @@ func (s *apartmentService) findOrCreateResident(ctx context.Context, siteID stri
 
 	existing, _, _ := s.userRepo.GetByPhone(ctx, res.Phone)
 	if existing != nil {
+		trimmedName := strings.TrimSpace(res.FullName)
+		if trimmedName != "" && (existing.FullName == "" || strings.Contains(existing.FullName, "Sistem Sahibi") || existing.FullName != trimmedName) {
+			emailToUse := existing.Email
+			if res.Email != nil && strings.TrimSpace(*res.Email) != "" {
+				trimmedEmail := strings.TrimSpace(*res.Email)
+				emailToUse = &trimmedEmail
+			}
+			_, _ = s.userRepo.UpdateUserDetails(ctx, existing.ID, trimmedName, existing.Phone, emailToUse)
+		}
 		return existing.ID, nil
 	}
 
@@ -315,8 +329,20 @@ func (s *apartmentService) UpdateResident(ctx context.Context, siteID string, re
 		return nil, err
 	}
 
-	// Site isolation check
-	if user.SiteID == nil || *user.SiteID != siteID {
+	// Site isolation check: allow if user belongs to the site OR is assigned as owner/tenant in this site
+	belongsToSite := user.SiteID != nil && *user.SiteID == siteID
+	if !belongsToSite {
+		apts, err := s.apartmentRepo.ListApartments(ctx, siteID)
+		if err == nil {
+			for _, a := range apts {
+				if (a.OwnerUserID != nil && *a.OwnerUserID == residentID) || (a.TenantUserID != nil && *a.TenantUserID == residentID) {
+					belongsToSite = true
+					break
+				}
+			}
+		}
+	}
+	if !belongsToSite {
 		return nil, ErrResidentForbidden
 	}
 

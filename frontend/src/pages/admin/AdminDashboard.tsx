@@ -8,6 +8,7 @@ import { paymentApi } from '../../api/payment';
 import { expenseApi } from '../../api/expense';
 import { meterApi } from '../../api/meter';
 import { announcementApi } from '../../api/announcement';
+import { residentApi } from '../../api/resident';
 import { useAuthStore } from '../../store/auth';
 import { authApi } from '../../api/auth';
 import { toast } from '../../store/toast';
@@ -29,6 +30,7 @@ import {
   Layers,
   LogOut,
   ArrowLeft,
+  ArrowLeftRight,
   UserCheck,
   UserX,
   UserPlus,
@@ -65,7 +67,7 @@ export function AdminDashboard() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, logout } = useAuthStore();
+  const { user, updateUser, logout } = useAuthStore();
 
   const siteIdQuery = searchParams.get('siteId') || undefined;
   const isOwnerViewing = user?.role === 'owner';
@@ -135,6 +137,11 @@ export function AdminDashboard() {
   const [aptError, setAptError] = useState<string | null>(null);
 
   // Queries
+  const { data: myApartments = [] } = useQuery({
+    queryKey: ['resident', 'my-apartments'],
+    queryFn: residentApi.getMyApartments,
+  });
+
   const { data: rawApartments = [], isLoading: isLoadingApts } = useQuery({
     queryKey: ['admin', 'apartments', siteIdQuery],
     queryFn: () => adminApi.listApartments(siteIdQuery),
@@ -162,8 +169,17 @@ export function AdminDashboard() {
   // Mutations
   const createAptMutation = useMutation({
     mutationFn: (payload: CreateApartmentRequest) => adminApi.createApartment(payload, siteIdQuery),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'apartments', siteIdQuery] });
+      queryClient.invalidateQueries({ queryKey: ['resident', 'my-apartments'] });
+      if (user?.phone) {
+        const myCleanPhone = cleanPhone(user.phone);
+        if (variables.owner && cleanPhone(variables.owner.phone) === myCleanPhone && variables.owner.full_name.trim()) {
+          updateUser({ full_name: variables.owner.full_name.trim() });
+        } else if (variables.tenant && cleanPhone(variables.tenant.phone) === myCleanPhone && variables.tenant.full_name.trim()) {
+          updateUser({ full_name: variables.tenant.full_name.trim() });
+        }
+      }
       setIsAptModalOpen(false);
       setNewApt({ door_number: '', floor: undefined, block_id: undefined });
       setHasOwnerOnCreate(false);
@@ -189,6 +205,7 @@ export function AdminDashboard() {
     mutationFn: (id: string) => adminApi.softDeleteApartment(id, siteIdQuery),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'apartments', siteIdQuery] });
+      queryClient.invalidateQueries({ queryKey: ['resident', 'my-apartments'] });
       toast.success('Daire pasife alındı.');
     },
     onError: () => {
@@ -225,8 +242,12 @@ export function AdminDashboard() {
       mode === 'owner'
         ? adminApi.setOwner(aptId, res, siteIdQuery)
         : adminApi.setTenant(aptId, res, siteIdQuery),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'apartments', siteIdQuery] });
+      queryClient.invalidateQueries({ queryKey: ['resident', 'my-apartments'] });
+      if (user?.phone && cleanPhone(variables.res.phone) === cleanPhone(user.phone) && variables.res.full_name.trim()) {
+        updateUser({ full_name: variables.res.full_name.trim() });
+      }
       setResidentModalMode(null);
       setEditingResidentId(null);
       setActiveAptForAction(null);
@@ -242,8 +263,20 @@ export function AdminDashboard() {
   const updateResidentMutation = useMutation({
     mutationFn: ({ residentId, res }: { residentId: string; res: ResidentInput }) =>
       adminApi.updateResident(residentId, res, siteIdQuery),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'apartments', siteIdQuery] });
+      queryClient.invalidateQueries({ queryKey: ['resident', 'my-apartments'] });
+      if (
+        user &&
+        (variables.residentId === user.id ||
+          (user.phone && cleanPhone(variables.res.phone) === cleanPhone(user.phone)))
+      ) {
+        updateUser({
+          full_name: variables.res.full_name.trim(),
+          phone: cleanPhone(variables.res.phone),
+          email: variables.res.email?.trim() || null,
+        });
+      }
       setResidentModalMode(null);
       setEditingResidentId(null);
       setActiveAptForAction(null);
@@ -261,6 +294,7 @@ export function AdminDashboard() {
       adminApi.removeTenant(aptId, payload, siteIdQuery),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'apartments', siteIdQuery] });
+      queryClient.invalidateQueries({ queryKey: ['resident', 'my-apartments'] });
       setIsRemoveTenantModalOpen(false);
       setActiveAptForAction(null);
       setRemoveTenantForm({ debt_action: 'keep', notes: '' });
@@ -773,6 +807,10 @@ export function AdminDashboard() {
   const occupiedOwners = apartments.filter((a) => a.owner_user_id && !a.tenant_user_id).length;
   const emptyCount = apartments.filter((a) => !a.tenant_user_id && !a.owner_user_id).length;
 
+  const myResidentApt =
+    (siteIdQuery ? myApartments.find((a) => a.site_id === siteIdQuery) : undefined) ||
+    myApartments[0];
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
       {/* Top Navbar */}
@@ -810,7 +848,19 @@ export function AdminDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {myResidentApt && (
+              <button
+                onClick={() => navigate(`/resident/dashboard?site_id=${myResidentApt.site_id}`)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 py-1.5 px-3 rounded-xl transition-colors cursor-pointer"
+                title="Malik / Sakin görünümüne geç"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>
+                  {myResidentApt.is_owner ? 'Malik Görünümü' : 'Sakin Görünümü'} (No: {myResidentApt.door_number})
+                </span>
+              </button>
+            )}
             <div className="hidden sm:flex items-center gap-2 bg-slate-100 py-1.5 px-3 rounded-lg text-xs font-medium text-slate-700">
               <Shield className="w-4 h-4 text-indigo-600" />
               <span>{user?.full_name}</span>

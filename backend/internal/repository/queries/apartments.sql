@@ -92,3 +92,21 @@ WHERE id = $1 AND site_id = $2;
 UPDATE apartments
 SET tenant_user_id = NULL, updated_at = NOW()
 WHERE id = $1 AND site_id = $2;
+
+-- name: ListApartmentsByUserID :many
+SELECT 
+    a.id,
+    a.site_id,
+    s.name AS site_name,
+    a.block_id,
+    b.name AS block_name,
+    a.door_number,
+    a.floor,
+    a.owner_user_id,
+    a.tenant_user_id
+FROM apartments a
+JOIN sites s ON s.id = a.site_id
+LEFT JOIN blocks b ON b.id = a.block_id
+WHERE a.is_active = TRUE AND (a.owner_user_id = $1 OR a.tenant_user_id = $1)
+ORDER BY s.name ASC, b.name ASC NULLS FIRST, NULLIF(regexp_replace(a.door_number, '\D', '', 'g'), '')::INT ASC NULLS LAST, a.door_number ASC;
+

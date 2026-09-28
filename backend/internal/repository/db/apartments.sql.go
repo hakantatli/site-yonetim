@@ -234,6 +234,66 @@ func (q *Queries) ListApartmentsBySiteID(ctx context.Context, siteID pgtype.UUID
 	return items, nil
 }
 
+const listApartmentsByUserID = `-- name: ListApartmentsByUserID :many
+SELECT 
+    a.id,
+    a.site_id,
+    s.name AS site_name,
+    a.block_id,
+    b.name AS block_name,
+    a.door_number,
+    a.floor,
+    a.owner_user_id,
+    a.tenant_user_id
+FROM apartments a
+JOIN sites s ON s.id = a.site_id
+LEFT JOIN blocks b ON b.id = a.block_id
+WHERE a.is_active = TRUE AND (a.owner_user_id = $1 OR a.tenant_user_id = $1)
+ORDER BY s.name ASC, b.name ASC NULLS FIRST, NULLIF(regexp_replace(a.door_number, '\D', '', 'g'), '')::INT ASC NULLS LAST, a.door_number ASC
+`
+
+type ListApartmentsByUserIDRow struct {
+	ID           pgtype.UUID `json:"id"`
+	SiteID       pgtype.UUID `json:"site_id"`
+	SiteName     string      `json:"site_name"`
+	BlockID      pgtype.UUID `json:"block_id"`
+	BlockName    pgtype.Text `json:"block_name"`
+	DoorNumber   string      `json:"door_number"`
+	Floor        pgtype.Int4 `json:"floor"`
+	OwnerUserID  pgtype.UUID `json:"owner_user_id"`
+	TenantUserID pgtype.UUID `json:"tenant_user_id"`
+}
+
+func (q *Queries) ListApartmentsByUserID(ctx context.Context, ownerUserID pgtype.UUID) ([]ListApartmentsByUserIDRow, error) {
+	rows, err := q.db.Query(ctx, listApartmentsByUserID, ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListApartmentsByUserIDRow{}
+	for rows.Next() {
+		var i ListApartmentsByUserIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SiteID,
+			&i.SiteName,
+			&i.BlockID,
+			&i.BlockName,
+			&i.DoorNumber,
+			&i.Floor,
+			&i.OwnerUserID,
+			&i.TenantUserID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeApartmentTenant = `-- name: RemoveApartmentTenant :exec
 UPDATE apartments
 SET tenant_user_id = NULL, updated_at = NOW()
