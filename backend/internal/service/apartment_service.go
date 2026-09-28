@@ -39,6 +39,7 @@ type ApartmentService interface {
 	CreateApartment(ctx context.Context, siteID string, req domain.CreateApartmentRequest, recordedBy *string) (*domain.Apartment, error)
 	UpdateApartment(ctx context.Context, siteID string, apartmentID string, req domain.UpdateApartmentRequest) (*domain.Apartment, error)
 	SoftDeleteApartment(ctx context.Context, siteID string, apartmentID string) error
+	SetDueExempt(ctx context.Context, siteID string, apartmentID string, isDueExempt bool) (*domain.Apartment, error)
 
 	// Residents
 	SetOwner(ctx context.Context, siteID string, apartmentID string, resident domain.ResidentInput) (*domain.Apartment, error)
@@ -137,6 +138,12 @@ func (s *apartmentService) CreateApartment(ctx context.Context, siteID string, r
 		return nil, err
 	}
 
+	if req.IsDueExempt {
+		if err := s.apartmentRepo.SetApartmentDueExempt(ctx, apt.ID, siteID, true); err == nil {
+			apt.IsDueExempt = true
+		}
+	}
+
 	// Record tenant history if tenant supplied
 	if tenantUserID != nil {
 		_ = s.apartmentRepo.CreateTenantHistory(ctx, apt.ID, *tenantUserID, time.Now(), recordedBy)
@@ -154,6 +161,13 @@ func (s *apartmentService) UpdateApartment(ctx context.Context, siteID string, a
 
 func (s *apartmentService) SoftDeleteApartment(ctx context.Context, siteID string, apartmentID string) error {
 	return s.apartmentRepo.SoftDeleteApartment(ctx, apartmentID, siteID)
+}
+
+func (s *apartmentService) SetDueExempt(ctx context.Context, siteID string, apartmentID string, isDueExempt bool) (*domain.Apartment, error) {
+	if err := s.apartmentRepo.SetApartmentDueExempt(ctx, apartmentID, siteID, isDueExempt); err != nil {
+		return nil, err
+	}
+	return s.apartmentRepo.GetApartmentByID(ctx, apartmentID, siteID)
 }
 
 // Residents

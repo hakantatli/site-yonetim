@@ -52,6 +52,9 @@ func main() {
 		slog.Warn("database ping failed, continuing anyway", "error", err)
 	} else {
 		slog.Info("connected to database successfully")
+		if _, err := dbPool.Exec(ctx, "ALTER TABLE apartments ADD COLUMN IF NOT EXISTS is_due_exempt BOOLEAN NOT NULL DEFAULT FALSE;"); err != nil {
+			slog.Warn("could not ensure is_due_exempt column", "error", err)
+		}
 	}
 
 	// Repositories

@@ -24,6 +24,7 @@ type Apartment struct {
 	TenantFullName *string   `json:"tenant_full_name,omitempty"`
 	TenantPhone    *string   `json:"tenant_phone,omitempty"`
 	TenantEmail    *string   `json:"tenant_email,omitempty"`
+	IsDueExempt    bool      `json:"is_due_exempt"`
 	IsActive       bool      `json:"is_active"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
@@ -37,11 +38,16 @@ type ResidentInput struct {
 }
 
 type CreateApartmentRequest struct {
-	BlockID    *string        `json:"block_id,omitempty"`
-	DoorNumber string         `json:"door_number"`
-	Floor      *int32         `json:"floor,omitempty"`
-	Owner      *ResidentInput `json:"owner,omitempty"`
-	Tenant     *ResidentInput `json:"tenant,omitempty"`
+	BlockID     *string        `json:"block_id,omitempty"`
+	DoorNumber  string         `json:"door_number"`
+	Floor       *int32         `json:"floor,omitempty"`
+	IsDueExempt bool           `json:"is_due_exempt,omitempty"`
+	Owner       *ResidentInput `json:"owner,omitempty"`
+	Tenant      *ResidentInput `json:"tenant,omitempty"`
+}
+
+type SetDueExemptRequest struct {
+	IsDueExempt bool `json:"is_due_exempt"`
 }
 
 type UpdateApartmentRequest struct {

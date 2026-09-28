@@ -60,6 +60,15 @@ export const adminApi = {
     });
   },
 
+  setDueExempt: async (id: string, isDueExempt: boolean, siteId?: string): Promise<Apartment> => {
+    const { data } = await apiClient.patch<Apartment>(
+      `/admin/apartments/${id}/due-exempt`,
+      { is_due_exempt: isDueExempt },
+      { params: siteId ? { siteId } : undefined }
+    );
+    return data;
+  },
+
   // Residents
   setOwner: async (apartmentId: string, resident: ResidentInput, siteId?: string): Promise<Apartment> => {
     const { data } = await apiClient.post<Apartment>(

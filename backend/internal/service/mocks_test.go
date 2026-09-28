@@ -198,6 +198,7 @@ type mockApartmentRepository struct {
 	listTenantHistoryFn        func(ctx context.Context, apartmentID string) ([]domain.TenantHistoryItem, error)
 	transferOpenDebtsToOwnerFn func(ctx context.Context, apartmentID string, oldDebtorID string, newDebtorID string) error
 	deleteOpenDebtsByDebtorFn  func(ctx context.Context, apartmentID string, debtorID string) error
+	setApartmentDueExemptFn    func(ctx context.Context, id string, siteID string, isDueExempt bool) error
 	listApartmentsByUserIDFn   func(ctx context.Context, userID string) ([]domain.UserApartment, error)
 }
 
@@ -281,6 +282,13 @@ func (m *mockApartmentRepository) SetApartmentTenant(ctx context.Context, id str
 func (m *mockApartmentRepository) RemoveApartmentTenant(ctx context.Context, id string, siteID string) error {
 	if m.removeApartmentTenantFn != nil {
 		return m.removeApartmentTenantFn(ctx, id, siteID)
+	}
+	return nil
+}
+
+func (m *mockApartmentRepository) SetApartmentDueExempt(ctx context.Context, id string, siteID string, isDueExempt bool) error {
+	if m.setApartmentDueExemptFn != nil {
+		return m.setApartmentDueExemptFn(ctx, id, siteID, isDueExempt)
 	}
 	return nil
 }

@@ -92,6 +92,7 @@ type Querier interface {
 	RemoveApartmentTenant(ctx context.Context, arg RemoveApartmentTenantParams) error
 	RevokeRefreshToken(ctx context.Context, tokenHash string) (RefreshTokens, error)
 	RevokeUserRefreshTokens(ctx context.Context, userID pgtype.UUID) error
+	SetApartmentDueExempt(ctx context.Context, arg SetApartmentDueExemptParams) error
 	SetApartmentOwner(ctx context.Context, arg SetApartmentOwnerParams) error
 	SetApartmentTenant(ctx context.Context, arg SetApartmentTenantParams) error
 	SoftDeleteApartment(ctx context.Context, arg SoftDeleteApartmentParams) error

@@ -33,6 +33,7 @@ type ApartmentRepository interface {
 	SetApartmentOwner(ctx context.Context, id string, siteID string, ownerUserID string) error
 	SetApartmentTenant(ctx context.Context, id string, siteID string, tenantUserID string) error
 	RemoveApartmentTenant(ctx context.Context, id string, siteID string) error
+	SetApartmentDueExempt(ctx context.Context, id string, siteID string, isDueExempt bool) error
 	ListApartmentsByUserID(ctx context.Context, userID string) ([]domain.UserApartment, error)
 
 	// Tenant History & Debts
@@ -128,6 +129,7 @@ func (r *pgApartmentRepository) ListApartments(ctx context.Context, siteID strin
 			TenantFullName: TextToPtrString(row.TenantFullName),
 			TenantPhone:    TextToPtrString(row.TenantPhone),
 			TenantEmail:    TextToPtrString(row.TenantEmail),
+			IsDueExempt:    row.IsDueExempt,
 			IsActive:       row.IsActive,
 			CreatedAt:      row.CreatedAt.Time,
 			UpdatedAt:      row.UpdatedAt.Time,
@@ -168,6 +170,7 @@ func (r *pgApartmentRepository) GetApartmentByID(ctx context.Context, id string,
 		TenantFullName: TextToPtrString(row.TenantFullName),
 		TenantPhone:    TextToPtrString(row.TenantPhone),
 		TenantEmail:    TextToPtrString(row.TenantEmail),
+		IsDueExempt:    row.IsDueExempt,
 		IsActive:       row.IsActive,
 		CreatedAt:      row.CreatedAt.Time,
 		UpdatedAt:      row.UpdatedAt.Time,
@@ -243,6 +246,29 @@ func (r *pgApartmentRepository) RemoveApartmentTenant(ctx context.Context, id st
 		ID:     StringToUUID(id),
 		SiteID: StringToUUID(siteID),
 	})
+}
+
+func (r *pgApartmentRepository) SetApartmentDueExempt(ctx context.Context, id string, siteID string, isDueExempt bool) error {
+	if err := r.queries.SetApartmentDueExempt(ctx, db.SetApartmentDueExemptParams{
+		ID:          StringToUUID(id),
+		SiteID:      StringToUUID(siteID),
+		IsDueExempt: isDueExempt,
+	}); err != nil {
+		return err
+	}
+
+	if isDueExempt && r.pool != nil {
+		_, _ = r.pool.Exec(ctx, `
+			DELETE FROM debts
+			WHERE apartment_id = $1
+			  AND site_id = $2
+			  AND type = 'monthly_due'
+			  AND status = 'open'
+			  AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.debt_id = debts.id)
+		`, StringToUUID(id), StringToUUID(siteID))
+	}
+
+	return nil
 }
 
 func (r *pgApartmentRepository) CreateTenantHistory(ctx context.Context, apartmentID string, tenantUserID string, startedAt time.Time, recordedBy *string) error {

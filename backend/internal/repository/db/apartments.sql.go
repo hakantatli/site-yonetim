@@ -34,7 +34,7 @@ INSERT INTO apartments (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-RETURNING id, site_id, block_id, door_number, floor, owner_user_id, tenant_user_id, is_active, deleted_at, created_at, updated_at
+RETURNING id, site_id, block_id, door_number, floor, owner_user_id, tenant_user_id, is_active, deleted_at, created_at, updated_at, is_due_exempt
 `
 
 type CreateApartmentParams struct {
@@ -68,6 +68,7 @@ func (q *Queries) CreateApartment(ctx context.Context, arg CreateApartmentParams
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDueExempt,
 	)
 	return i, err
 }
@@ -88,6 +89,7 @@ SELECT
     u_tenant.full_name AS tenant_full_name,
     u_tenant.phone AS tenant_phone,
     u_tenant.email AS tenant_email,
+    a.is_due_exempt,
     a.is_active,
     a.created_at,
     a.updated_at
@@ -119,6 +121,7 @@ type GetApartmentByIDRow struct {
 	TenantFullName pgtype.Text        `json:"tenant_full_name"`
 	TenantPhone    pgtype.Text        `json:"tenant_phone"`
 	TenantEmail    pgtype.Text        `json:"tenant_email"`
+	IsDueExempt    bool               `json:"is_due_exempt"`
 	IsActive       bool               `json:"is_active"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
@@ -142,6 +145,7 @@ func (q *Queries) GetApartmentByID(ctx context.Context, arg GetApartmentByIDPara
 		&i.TenantFullName,
 		&i.TenantPhone,
 		&i.TenantEmail,
+		&i.IsDueExempt,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -165,6 +169,7 @@ SELECT
     u_tenant.full_name AS tenant_full_name,
     u_tenant.phone AS tenant_phone,
     u_tenant.email AS tenant_email,
+    a.is_due_exempt,
     a.is_active,
     a.created_at,
     a.updated_at
@@ -191,6 +196,7 @@ type ListApartmentsBySiteIDRow struct {
 	TenantFullName pgtype.Text        `json:"tenant_full_name"`
 	TenantPhone    pgtype.Text        `json:"tenant_phone"`
 	TenantEmail    pgtype.Text        `json:"tenant_email"`
+	IsDueExempt    bool               `json:"is_due_exempt"`
 	IsActive       bool               `json:"is_active"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
@@ -220,6 +226,7 @@ func (q *Queries) ListApartmentsBySiteID(ctx context.Context, siteID pgtype.UUID
 			&i.TenantFullName,
 			&i.TenantPhone,
 			&i.TenantEmail,
+			&i.IsDueExempt,
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -310,6 +317,23 @@ func (q *Queries) RemoveApartmentTenant(ctx context.Context, arg RemoveApartment
 	return err
 }
 
+const setApartmentDueExempt = `-- name: SetApartmentDueExempt :exec
+UPDATE apartments
+SET is_due_exempt = $3, updated_at = NOW()
+WHERE id = $1 AND site_id = $2
+`
+
+type SetApartmentDueExemptParams struct {
+	ID          pgtype.UUID `json:"id"`
+	SiteID      pgtype.UUID `json:"site_id"`
+	IsDueExempt bool        `json:"is_due_exempt"`
+}
+
+func (q *Queries) SetApartmentDueExempt(ctx context.Context, arg SetApartmentDueExemptParams) error {
+	_, err := q.db.Exec(ctx, setApartmentDueExempt, arg.ID, arg.SiteID, arg.IsDueExempt)
+	return err
+}
+
 const setApartmentOwner = `-- name: SetApartmentOwner :exec
 UPDATE apartments
 SET owner_user_id = $3, updated_at = NOW()
@@ -364,7 +388,7 @@ const updateApartment = `-- name: UpdateApartment :one
 UPDATE apartments
 SET block_id = $3, door_number = $4, floor = $5, updated_at = NOW()
 WHERE id = $1 AND site_id = $2
-RETURNING id, site_id, block_id, door_number, floor, owner_user_id, tenant_user_id, is_active, deleted_at, created_at, updated_at
+RETURNING id, site_id, block_id, door_number, floor, owner_user_id, tenant_user_id, is_active, deleted_at, created_at, updated_at, is_due_exempt
 `
 
 type UpdateApartmentParams struct {
@@ -396,6 +420,7 @@ func (q *Queries) UpdateApartment(ctx context.Context, arg UpdateApartmentParams
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDueExempt,
 	)
 	return i, err
 }

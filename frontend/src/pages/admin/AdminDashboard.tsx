@@ -181,7 +181,7 @@ export function AdminDashboard() {
         }
       }
       setIsAptModalOpen(false);
-      setNewApt({ door_number: '', floor: undefined, block_id: undefined });
+      setNewApt({ door_number: '', floor: undefined, block_id: undefined, is_due_exempt: false });
       setHasOwnerOnCreate(false);
       setHasTenantOnCreate(false);
       setAptError(null);
@@ -198,6 +198,27 @@ export function AdminDashboard() {
       } else {
         setAptError('Daire eklenirken hata oluştu');
       }
+    },
+  });
+
+  const [selectedExemptAptId, setSelectedExemptAptId] = useState<string>('');
+
+  const setDueExemptMutation = useMutation({
+    mutationFn: ({ aptId, isDueExempt }: { aptId: string; isDueExempt: boolean }) =>
+      adminApi.setDueExempt(aptId, isDueExempt, siteIdQuery),
+    onSuccess: (updatedApt) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'apartments', siteIdQuery] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'debts', siteIdQuery] });
+      queryClient.invalidateQueries({ queryKey: ['resident', 'debts'] });
+      setSelectedExemptAptId('');
+      toast.success(
+        updatedApt.is_due_exempt
+          ? `No: ${updatedApt.door_number} aidattan muaf olarak işaretlendi ve varsa ödenmemiş aidat borcu silindi.`
+          : `No: ${updatedApt.door_number} için aidat muafiyeti kaldırıldı.`
+      );
+    },
+    onError: () => {
+      toast.error('Aidat muafiyeti güncellenirken hata oluştu.');
     },
   });
 
@@ -1381,24 +1402,54 @@ export function AdminDashboard() {
 
                         {/* Durum */}
                         <td className="px-5 py-4">
-                          {apt.tenant_user_id ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                              Kiracılı
-                            </span>
-                          ) : apt.owner_user_id ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              Malik İkametinde
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                              Boş
-                            </span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {apt.tenant_user_id ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                Kiracılı
+                              </span>
+                            ) : apt.owner_user_id ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Malik İkametinde
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                Boş
+                              </span>
+                            )}
+                            {apt.is_due_exempt && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                <Shield className="w-3 h-3 text-amber-600" />
+                                <span>Aidattan Muaf</span>
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* İşlemler */}
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() =>
+                                setDueExemptMutation.mutate({
+                                  aptId: apt.id,
+                                  isDueExempt: !apt.is_due_exempt,
+                                })
+                              }
+                              disabled={setDueExemptMutation.isPending}
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                apt.is_due_exempt
+                                  ? 'text-amber-600 bg-amber-50 hover:bg-amber-100'
+                                  : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
+                              }`}
+                              title={
+                                apt.is_due_exempt
+                                  ? 'Aidat Muafiyeti Aktif (Kaldırmak için tıklayın)'
+                                  : 'Yönetici / Aidattan Muaf Olarak İşaretle'
+                              }
+                            >
+                              <Shield className="w-4 h-4" />
+                            </button>
+
                             {apt.tenant_user_id && (
                               <button
                                 onClick={() => {
@@ -1588,6 +1639,98 @@ export function AdminDashboard() {
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* Yönetici Aidat Muafiyeti Kartı */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm">Yönetici Aidat Muafiyeti</h3>
+                    <p className="text-xs text-slate-500">
+                      Aidattan muaf olarak işaretlenen dairelere (ör. Yönetici Dairesi) aylık aidat cronu veya manuel aidat tahakkuku çalıştığında aidat borcu yansıtılmaz.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={selectedExemptAptId}
+                    onChange={(e) => setSelectedExemptAptId(e.target.value)}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700"
+                  >
+                    <option value="">Muaf tutulacak daireyi seçin...</option>
+                    {apartments
+                      .filter((a) => !a.is_due_exempt)
+                      .map((apt) => (
+                        <option key={apt.id} value={apt.id}>
+                          {apt.block_name ? `${apt.block_name} - ` : ''}No: {apt.door_number}
+                          {apt.tenant_full_name
+                            ? ` (${apt.tenant_full_name})`
+                            : apt.owner_full_name
+                            ? ` (${apt.owner_full_name})`
+                            : ''}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!selectedExemptAptId || setDueExemptMutation.isPending}
+                    onClick={() => {
+                      if (selectedExemptAptId) {
+                        setDueExemptMutation.mutate({ aptId: selectedExemptAptId, isDueExempt: true });
+                      }
+                    }}
+                    className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+                  >
+                    Muafiyet Tanımla
+                  </button>
+                </div>
+              </div>
+
+              {apartments.filter((a) => a.is_due_exempt).length === 0 ? (
+                <div className="text-xs text-slate-400 italic py-2">
+                  Şu anda bu sitede aidattan muaf tanımlı bir daire bulunmuyor (tüm aktif dairelere aidat yansıtılır).
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {apartments
+                    .filter((a) => a.is_due_exempt)
+                    .map((apt) => (
+                      <div
+                        key={apt.id}
+                        className="flex items-center justify-between p-3.5 rounded-xl bg-amber-50/60 border border-amber-200"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
+                            {apt.door_number}
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 text-xs block">
+                              {apt.block_name ? `${apt.block_name} - No: ${apt.door_number}` : `Daire No: ${apt.door_number}`}
+                            </span>
+                            <span className="text-[11px] text-amber-800 font-medium block">
+                              {apt.tenant_full_name || apt.owner_full_name || 'Sakin Atanmamış'}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDueExemptMutation.mutate({ aptId: apt.id, isDueExempt: false })
+                          }
+                          disabled={setDueExemptMutation.isPending}
+                          className="text-[11px] font-semibold text-rose-600 hover:text-rose-800 bg-white hover:bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Muafiyeti Kaldır
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
 
             {/* Aidat Geçmişi Tablosu */}
@@ -3025,6 +3168,26 @@ export function AdminDashboard() {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
                   />
                 </div>
+              </div>
+
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl px-3 py-2.5">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!newApt.is_due_exempt}
+                    onChange={(e) => setNewApt({ ...newApt, is_due_exempt: e.target.checked })}
+                    className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
+                  />
+                  <div>
+                    <span className="text-xs font-semibold text-amber-900 flex items-center gap-1">
+                      <Shield className="w-3.5 h-3.5 text-amber-600" />
+                      Yönetici Dairesi / Aidattan Muaf Tut
+                    </span>
+                    <p className="text-[11px] text-amber-700/80 mt-0.5">
+                      İşaretlenirse aylık aidat cronu ve toplu aidat tahakkuku bu daireye borç yansıtmaz.
+                    </p>
+                  </div>
+                </label>
               </div>
 
               {/* Ev Sahibi toggle */}

@@ -167,10 +167,11 @@ func TestDueService_AccrueMonthlyDuesForSite(t *testing.T) {
 		},
 	}
 
-	// UUIDs for 2 apartments
-	var apt1UUID, apt2UUID, ownerUUID, tenantUUID pgtype.UUID
+	// UUIDs for 3 apartments (apt3 is due-exempt manager apartment)
+	var apt1UUID, apt2UUID, apt3UUID, ownerUUID, tenantUUID pgtype.UUID
 	_ = apt1UUID.Scan("11111111-1111-1111-1111-111111111111")
 	_ = apt2UUID.Scan("22222222-2222-2222-2222-222222222222")
+	_ = apt3UUID.Scan("55555555-5555-5555-5555-555555555555")
 	_ = ownerUUID.Scan("33333333-3333-3333-3333-333333333333")
 	_ = tenantUUID.Scan("44444444-4444-4444-4444-444444444444")
 
@@ -182,11 +183,19 @@ func TestDueService_AccrueMonthlyDuesForSite(t *testing.T) {
 					ID:           apt1UUID,
 					TenantUserID: tenantUUID,
 					OwnerUserID:  ownerUUID,
+					IsDueExempt:  false,
 				},
 				{
 					ID:           apt2UUID,
 					TenantUserID: pgtype.UUID{Valid: false}, // empty tenant
 					OwnerUserID:  ownerUUID,
+					IsDueExempt:  false,
+				},
+				{
+					ID:           apt3UUID,
+					TenantUserID: pgtype.UUID{Valid: false},
+					OwnerUserID:  ownerUUID,
+					IsDueExempt:  true, // manager apartment exempt from monthly dues
 				},
 			}, nil
 		},
@@ -205,6 +214,12 @@ func TestDueService_AccrueMonthlyDuesForSite(t *testing.T) {
 
 	if res.CreatedCount != 2 {
 		t.Fatalf("expected 2 created dues, got %d", res.CreatedCount)
+	}
+	if res.SkippedCount != 1 {
+		t.Fatalf("expected 1 skipped due (due-exempt manager apartment), got %d", res.SkippedCount)
+	}
+	if _, exists := accruedDebtors["55555555-5555-5555-5555-555555555555"]; exists {
+		t.Fatalf("due-exempt apartment should not have accrued monthly due")
 	}
 
 	// Verify debtor choice: Apt 1 -> Tenant, Apt 2 -> Owner

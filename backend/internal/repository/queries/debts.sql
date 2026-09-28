@@ -83,7 +83,8 @@ SELECT
     a.id, 
     a.site_id, 
     a.owner_user_id, 
-    a.tenant_user_id
+    a.tenant_user_id,
+    a.is_due_exempt
 FROM apartments a
 WHERE a.site_id = $1 AND a.is_active = TRUE;
 

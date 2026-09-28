@@ -53,6 +53,7 @@ func (h *AdminHandler) Routes() chi.Router {
 	r.Post("/apartments", h.CreateApartment)
 	r.Get("/apartments/{id}", h.GetApartment)
 	r.Patch("/apartments/{id}", h.UpdateApartment)
+	r.Patch("/apartments/{id}/due-exempt", h.SetDueExempt)
 	r.Delete("/apartments/{id}", h.SoftDeleteApartment)
 
 	// Residents
@@ -312,6 +313,28 @@ func (h *AdminHandler) SoftDeleteApartment(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]string{"message": "daire başarıyla pasife alındı (veriler korundu)"})
+}
+
+func (h *AdminHandler) SetDueExempt(w http.ResponseWriter, r *http.Request) {
+	siteID, err := h.getSiteID(r)
+	if err != nil {
+		respondJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		return
+	}
+	apartmentID := chi.URLParam(r, "id")
+
+	var req domain.SetDueExemptRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz istek gövdesi"})
+		return
+	}
+
+	apt, err := h.apartmentService.SetDueExempt(r.Context(), siteID, apartmentID, req.IsDueExempt)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "aidat muafiyeti güncellenemedi"})
+		return
+	}
+	respondJSON(w, http.StatusOK, apt)
 }
 
 // Residents

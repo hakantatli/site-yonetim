@@ -18,6 +18,7 @@ SELECT
     u_tenant.full_name AS tenant_full_name,
     u_tenant.phone AS tenant_phone,
     u_tenant.email AS tenant_email,
+    a.is_due_exempt,
     a.is_active,
     a.created_at,
     a.updated_at
@@ -44,6 +45,7 @@ SELECT
     u_tenant.full_name AS tenant_full_name,
     u_tenant.phone AS tenant_phone,
     u_tenant.email AS tenant_email,
+    a.is_due_exempt,
     a.is_active,
     a.created_at,
     a.updated_at
@@ -91,6 +93,11 @@ WHERE id = $1 AND site_id = $2;
 -- name: RemoveApartmentTenant :exec
 UPDATE apartments
 SET tenant_user_id = NULL, updated_at = NOW()
+WHERE id = $1 AND site_id = $2;
+
+-- name: SetApartmentDueExempt :exec
+UPDATE apartments
+SET is_due_exempt = $3, updated_at = NOW()
 WHERE id = $1 AND site_id = $2;
 
 -- name: ListApartmentsByUserID :many

@@ -32,6 +32,7 @@ type Apartments struct {
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	IsDueExempt  bool               `json:"is_due_exempt"`
 }
 
 type Blocks struct {

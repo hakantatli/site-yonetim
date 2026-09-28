@@ -237,6 +237,11 @@ func (s *dueService) CreateBulkDebt(ctx context.Context, siteID, userID string, 
 	var createdIDs []string
 
 	for _, apt := range apartments {
+		if req.Type == domain.DebtTypeMonthlyDue && apt.IsDueExempt {
+			skippedCount++
+			continue
+		}
+
 		var debtorID string
 
 		// Muhatap belirleme: Demirbaş/Yatırım veya malik hedefli ise ev sahibi zorunludur
@@ -334,6 +339,12 @@ func (s *dueService) AccrueMonthlyDuesForSite(ctx context.Context, siteID string
 	desc := fmt.Sprintf("%s Aidat Borcu", targetMonth.Format("2006-01"))
 
 	for _, apt := range apartments {
+		if apt.IsDueExempt {
+			// Skip due-exempt apartments (e.g., manager's apartment)
+			skippedCount++
+			continue
+		}
+
 		var debtorID string
 		if apt.TenantUserID.Valid {
 			debtorID = repository.UUIDToString(apt.TenantUserID)

@@ -20,6 +20,7 @@ export interface Apartment {
   tenant_full_name?: string | null;
   tenant_phone?: string | null;
   tenant_email?: string | null;
+  is_due_exempt?: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -36,6 +37,7 @@ export interface CreateApartmentRequest {
   block_id?: string;
   door_number: string;
   floor?: number;
+  is_due_exempt?: boolean;
   owner?: ResidentInput;
   tenant?: ResidentInput;
 }

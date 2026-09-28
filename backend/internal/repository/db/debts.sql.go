@@ -244,7 +244,8 @@ SELECT
     a.id, 
     a.site_id, 
     a.owner_user_id, 
-    a.tenant_user_id
+    a.tenant_user_id,
+    a.is_due_exempt
 FROM apartments a
 WHERE a.site_id = $1 AND a.is_active = TRUE
 `
@@ -254,6 +255,7 @@ type ListActiveApartmentsForAccrualRow struct {
 	SiteID       pgtype.UUID `json:"site_id"`
 	OwnerUserID  pgtype.UUID `json:"owner_user_id"`
 	TenantUserID pgtype.UUID `json:"tenant_user_id"`
+	IsDueExempt  bool        `json:"is_due_exempt"`
 }
 
 func (q *Queries) ListActiveApartmentsForAccrual(ctx context.Context, siteID pgtype.UUID) ([]ListActiveApartmentsForAccrualRow, error) {
@@ -270,6 +272,7 @@ func (q *Queries) ListActiveApartmentsForAccrual(ctx context.Context, siteID pgt
 			&i.SiteID,
 			&i.OwnerUserID,
 			&i.TenantUserID,
+			&i.IsDueExempt,
 		); err != nil {
 			return nil, err
 		}

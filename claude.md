@@ -60,6 +60,7 @@
 - **Aidat Geçmişi:** Aidat tutarı her değiştirildiğinde `valid_from` tarihiyle birlikte kayıt altına alınır. Geçmiş tahakkuklar geriye dönük değiştirilmez.
 - **Aidat Değişikliği Geçerlilik:** Yönetici yeni tutar girerken "bu aydan geçerli" veya "gelecek aydan geçerli" seçeneğini seçer.
 - **Otomatik Borç Tahakkuku:** Aidat borçları her ayın 1'inde sistem tarafından otomatik olarak (cron job) dairelere yansıtılır.
+- **Yönetici / Daire Aidat Muafiyeti (`is_due_exempt`):** Bazı sitelerde yönetici dairesi aylık aidattan muaf tutulabilir. Aidat Ayarları veya Daireler ekranından "Aidattan Muaf" olarak işaretlenen dairelere, aylık aidat cron'u çalıştığında (veya manuel aylık aidat tahakkuku tetiklendiğinde) aidat borcu yansıtılmaz.
 - **Borç Muhatabı:**
   - Dairede aktif bir kiracı varsa, aylık rutin aidat borcu doğrudan **Kiracı'ya** tahakkuk ettirilir.
   - Dairede kiracı yoksa (boşsa), rutin aidat borcu **Ev Sahibi'ne** tahakkuk ettirilir.
