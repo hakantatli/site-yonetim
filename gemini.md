@@ -76,7 +76,7 @@
 #### 5. Tahsilat, Masraf Takibi ve Şeffaf Kasa
 
 - **Manuel Tahsilat Girişi:** Kredi kartı/sanal POS entegrasyonu olmayacak. Ödemeler nakit/havale kontrolü sonrası yönetici tarafından sisteme manuel girilir.
-- **Kısmi ve Fazla Ödeme Desteği:** Kat malikleri veya kiracılar borcun tamamını ödemeyebileceği gibi (parçalı/kısmi ödeme), sehven veya yuvarlayarak borç tutarının üzerinde de (fazla ödeme) ödeme gönderebilirler. Kısmi ödemede kalan bakiye (`remaining = toplam_borç - yapılan_ödemeler_toplamı`) takip edilir; borç tutarını aşan fazla ödemelerde ise borç tamamen ödendi (`paid`) olarak işaretlenir, aradaki fazla fark otomatik olarak ödeme notuna (`[Fazla Ödeme: ₺X.XX]`) eklenir ve kalan borç bakiyesi 0 olarak kabul edilir.
+- **Kısmi ve Fazla Ödeme Desteği:** Kat malikleri veya kiracılar borcun tamamını ödemeyebileceği gibi (parçalı/kısmi ödeme), sehven veya yuvarlayarak borç tutarının üzerinde de (fazla ödeme) ödeme gönderebilirler. Kısmi ödemede kalan bakiye (`remaining = toplam_borç - yapılan_ödemeler_toplamı`) takip edilir ve eksik kalan fark otomatik olarak ödeme notuna (`[Eksik Ödeme: ₺X.XX]`) eklenir; borç tutarını aşan fazla ödemelerde ise borç tamamen ödendi (`paid`) olarak işaretlenir, aradaki fazla fark otomatik olarak ödeme notuna (`[Fazla Ödeme: ₺X.XX]`) eklenir ve kalan borç bakiyesi 0 olarak kabul edilir.
 - **Kategori Bazlı Masraf Takibi:** Masraflar kategorilere ayrılarak işlenir. Kategoriler site yöneticisi tarafından kendi sitesi için özelleştirilebilir (ekle / düzenle / sil). Varsayılan kategoriler: Elektrik/Su, Temizlik, Asansör Bakımı, Personel/Görevli, Demirbaş/Onarım, Genel Giderler.
 
 - **Şeffaf Kasa & Devir Bakiyesi:** Siteye ait tüm gelirler ve kategori bazlı giderler sakinlerin erişimine açık bir şekilde özet olarak sunulur (aylık gelir, aylık gider kategori bazlı, net bakiye). Yönetici, siteyi sisteme taşırken mevcut kasa/banka birikimini **Açılış / Devir Bakiyesi** (`initial_balance`) olarak sisteme girebilir ve güncelleyebilir; net kasa bakiyesi `Net Bakiye = Devir Bakiyesi + Toplam Tahsilat - Toplam Masraf` şeklinde hesaplanır. Hem yönetici hem de sakin ekranlarında bu başlangıç bakiyesi şeffafça dökümlenir.
@@ -140,7 +140,7 @@
 #### 10. Raporlama / PDF Ekstre
 
 - **Aylık Gelir ve Gider Raporları:** Yönetici ve Owner, seçilen aya ait gelirleri (tahsilatlar) veya giderleri (masraflar) ayrı raporlar halinde listeleyip doğrudan tarayıcı üzerinden yazdırabilir veya PDF olarak kaydedebilir (`window.print()`).
-- **Format:** Numaralı liste (`No`), her bir işlem tek satır olacak şekilde: `No` -> `Tarih` -> `İşlem Detayı` (Daire/Sakin/Borç Türü/Ödeme Yöntemi veya Kategori/Açıklama/Fiş No) -> `Meblağ` (en sağda ₺ formatında).
+- **Format:** Numaralı liste (`No`), her bir işlem tek satır olacak şekilde: `No` -> `Tarih` -> `İşlem Detayı` (Daire/Sakin/Ödeme Konusu [Aidat Ödemesi, Su Faturası vb.] veya Kategori/Açıklama/Fiş No) -> `Meblağ` (en sağda ₺ formatında). Ödemenin nasıl yapıldığı (Nakit / Banka Havalesi vb.) raporda gösterilmez.
 - **Özet:** Raporun alt kısmında dönem toplam işlem sayısı ve genel toplam tutarı yer alır (imza alanı gerekmez).
 
 ---

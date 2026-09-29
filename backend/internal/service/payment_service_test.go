@@ -55,6 +55,9 @@ func TestPaymentService_RecordPayment(t *testing.T) {
 		if p.Amount != 400 {
 			t.Fatalf("expected amount 400, got %f", p.Amount)
 		}
+		if p.Notes == nil || !strings.Contains(*p.Notes, "[Eksik Ödeme: ₺600.00]") {
+			t.Fatalf("expected shortfall note [Eksik Ödeme: ₺600.00], got %v", p.Notes)
+		}
 		if updatedStatus != domain.DebtStatusPartial {
 			t.Fatalf("expected debt status to be partial, got %s", updatedStatus)
 		}

@@ -266,13 +266,52 @@ export function MonthlyReportModal({
                     {reportType === 'income' &&
                       payments.map((p, idx) => {
                         const aptText = `Daire ${p.block_name ? p.block_name + ' ' : ''}No: ${p.door_number}`;
-                        const debtLabel =
-                          p.debt_type === 'routine'
-                            ? `Aidat${p.debt_due_month ? ` (${p.debt_due_month})` : ''}`
-                            : p.debt_type === 'fixture'
-                            ? 'Demirbaş'
-                            : 'Ortak Gider';
-                        const methodText = p.payment_method === 'cash' ? 'Nakit' : 'Banka/Havale';
+                        const debtorName =
+                          p.debtor_full_name && !p.debtor_full_name.startsWith('Sistem Sahibi')
+                            ? p.debtor_full_name
+                            : 'Hakan Tatlı';
+
+                        let debtLabel = 'Diğer Ödeme';
+                        if (p.debt_type === 'monthly_due' || p.debt_type === 'routine') {
+                          debtLabel = 'Aidat Ödemesi';
+                        } else if (p.debt_type === 'utility') {
+                          if (p.debt_description) {
+                            const match = p.debt_description.match(
+                              /^(?:\d{2}\/\d{4}\s+|\d{4}-\d{2}\s+)?(.+?)\s+Tüketim Bedeli/i
+                            );
+                            if (match && match[1]) {
+                              const meterName = match[1].trim();
+                              debtLabel = /fatura|ödeme/i.test(meterName)
+                                ? meterName
+                                : `${meterName} Faturası`;
+                            } else {
+                              debtLabel = p.debt_description;
+                            }
+                          } else {
+                            debtLabel = 'Fatura Ödemesi';
+                          }
+                        } else if (p.debt_type === 'fixture') {
+                          debtLabel = p.debt_description
+                            ? `Demirbaş — ${p.debt_description}`
+                            : 'Demirbaş Ödemesi';
+                        } else if (p.debt_type === 'investment') {
+                          debtLabel = p.debt_description
+                            ? `Yatırım — ${p.debt_description}`
+                            : 'Yatırım Ödemesi';
+                        } else if (p.debt_description) {
+                          debtLabel = p.debt_description;
+                        }
+
+                        let noteText = p.notes || '';
+                        if (
+                          p.debt_total_amount > 0 &&
+                          p.amount < p.debt_total_amount &&
+                          !noteText.includes('Eksik Ödeme')
+                        ) {
+                          const shortfall = p.debt_total_amount - p.amount;
+                          const shortfallTag = `[Eksik Ödeme: ₺${shortfall.toFixed(2)}]`;
+                          noteText = noteText ? `${shortfallTag} ${noteText}` : shortfallTag;
+                        }
 
                         return (
                           <tr key={p.id} className="hover:bg-slate-50/50 print:hover:bg-transparent">
@@ -284,8 +323,8 @@ export function MonthlyReportModal({
                             </td>
                             <td className="py-2.5 px-3 text-slate-800">
                               <span className="font-bold text-slate-900">{aptText}</span>
-                              <span className="text-slate-600"> — {p.debtor_full_name}</span>
-                              <span className="text-slate-500"> ({debtLabel} — {methodText}{p.notes ? ` — Not: ${p.notes}` : ''})</span>
+                              <span className="text-slate-600"> — {debtorName}</span>
+                              <span className="text-slate-500"> ({debtLabel}{noteText ? ` — Not: ${noteText}` : ''})</span>
                             </td>
                             <td className="py-2.5 px-3 text-right font-bold font-mono text-slate-900 whitespace-nowrap">
                               ₺{p.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}

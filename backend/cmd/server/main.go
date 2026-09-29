@@ -55,6 +55,36 @@ func main() {
 		if _, err := dbPool.Exec(ctx, "ALTER TABLE apartments ADD COLUMN IF NOT EXISTS is_due_exempt BOOLEAN NOT NULL DEFAULT FALSE;"); err != nil {
 			slog.Warn("could not ensure is_due_exempt column", "error", err)
 		}
+		if _, err := dbPool.Exec(ctx, `
+			UPDATE debts d
+			SET debtor_user_id = a.owner_user_id, updated_at = NOW()
+			FROM apartments a, users u_debtor
+			WHERE d.apartment_id = a.id
+			  AND d.debtor_user_id = u_debtor.id
+			  AND u_debtor.full_name LIKE 'Sistem Sahibi%'
+			  AND a.tenant_user_id IS NULL
+			  AND a.owner_user_id IS NOT NULL
+			  AND a.owner_user_id <> d.debtor_user_id;
+		`); err != nil {
+			slog.Warn("could not sync owner debts", "error", err)
+		}
+		if _, err := dbPool.Exec(ctx, "UPDATE users SET full_name = 'Hakan Tatlı', updated_at = NOW() WHERE full_name LIKE 'Sistem Sahibi%';"); err != nil {
+			slog.Warn("could not update default owner full_name", "error", err)
+		}
+		if _, err := dbPool.Exec(ctx, `
+			UPDATE payments p
+			SET notes = CASE
+				WHEN p.notes IS NULL OR btrim(p.notes) = '' THEN '[Eksik Ödeme: ₺' || to_char(d.amount - p.amount, 'FM999999990.00') || ']'
+				ELSE '[Eksik Ödeme: ₺' || to_char(d.amount - p.amount, 'FM999999990.00') || '] ' || p.notes
+			END
+			FROM debts d
+			WHERE p.debt_id = d.id
+			  AND p.amount < d.amount
+			  AND (p.notes IS NULL OR p.notes NOT LIKE '%Eksik Ödeme%')
+			  AND (SELECT COUNT(*) FROM payments p2 WHERE p2.debt_id = d.id) = 1;
+		`); err != nil {
+			slog.Warn("could not backfill shortfall payment notes", "error", err)
+		}
 	}
 
 	// Repositories
@@ -102,7 +132,7 @@ func main() {
 			ownerPassword = "AdminPassword123!"
 		}
 	}
-	err = authService.SeedOwnerIfEmpty(ctx, cfg.InitialOwnerPhone, ownerEmail, ownerPassword, "Sistem Sahibi (Owner)")
+	err = authService.SeedOwnerIfEmpty(ctx, cfg.InitialOwnerPhone, ownerEmail, ownerPassword, "Hakan Tatlı")
 	if err != nil {
 		slog.Warn("could not seed owner user", "error", err)
 	} else {

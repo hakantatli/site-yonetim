@@ -32,7 +32,12 @@ const getStoredUser = (): User | null => {
   const stored = getItem('auth_user');
   if (!stored) return null;
   try {
-    return JSON.parse(stored);
+    const parsed = JSON.parse(stored) as User;
+    if (parsed && parsed.full_name && parsed.full_name.startsWith('Sistem Sahibi')) {
+      parsed.full_name = 'Hakan Tatlı';
+      setItem('auth_user', JSON.stringify(parsed));
+    }
+    return parsed;
   } catch {
     return null;
   }

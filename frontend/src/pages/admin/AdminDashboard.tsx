@@ -265,6 +265,9 @@ export function AdminDashboard() {
         : adminApi.setTenant(aptId, res, siteIdQuery),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'apartments', siteIdQuery] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'debts'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'payments'] });
+      queryClient.invalidateQueries({ queryKey: ['report', 'payments'] });
       queryClient.invalidateQueries({ queryKey: ['resident', 'my-apartments'] });
       if (user?.phone && cleanPhone(variables.res.phone) === cleanPhone(user.phone) && variables.res.full_name.trim()) {
         updateUser({ full_name: variables.res.full_name.trim() });
@@ -286,6 +289,9 @@ export function AdminDashboard() {
       adminApi.updateResident(residentId, res, siteIdQuery),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'apartments', siteIdQuery] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'debts'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'payments'] });
+      queryClient.invalidateQueries({ queryKey: ['report', 'payments'] });
       queryClient.invalidateQueries({ queryKey: ['resident', 'my-apartments'] });
       if (
         user &&
@@ -1298,7 +1304,9 @@ export function AdminDashboard() {
                           {apt.owner_full_name ? (
                             <div className="flex items-start justify-between gap-2 group">
                               <div>
-                                <span className="font-semibold text-slate-900 block">{apt.owner_full_name}</span>
+                                <span className="font-semibold text-slate-900 block">
+                                  {apt.owner_full_name.startsWith('Sistem Sahibi') ? 'Hakan Tatlı' : apt.owner_full_name}
+                                </span>
                                 <span className="text-[11px] text-slate-400 block">{apt.owner_email || '-'}</span>
                                 {apt.owner_phone && (
                                   <span className="text-[11px] text-slate-400 block">{formatPhone(apt.owner_phone)}</span>
@@ -1313,7 +1321,10 @@ export function AdminDashboard() {
                                     setResidentModalMode('owner');
                                     setEditingResidentId(apt.owner_user_id || null);
                                     setResidentForm({
-                                      full_name: apt.owner_full_name || '',
+                                      full_name:
+                                        apt.owner_full_name && apt.owner_full_name.startsWith('Sistem Sahibi')
+                                          ? 'Hakan Tatlı'
+                                          : apt.owner_full_name || '',
                                       phone: maskPhoneInput(apt.owner_phone || ''),
                                       email: apt.owner_email || '',
                                       password: '',
@@ -1850,6 +1861,7 @@ export function AdminDashboard() {
                   >
                     <option value="all">Tüm Borç Türleri</option>
                     <option value="monthly_due">Aylık Aidat</option>
+                    <option value="utility">Sayaç / Fatura</option>
                     <option value="fixture">Demirbaş Gideri</option>
                     <option value="investment">Ekstra Yatırım</option>
                     <option value="other">Diğer</option>
@@ -1908,13 +1920,22 @@ export function AdminDashboard() {
                             {debt.block_name ? `${debt.block_name} ` : ''}No: {debt.door_number}
                           </td>
                           <td className="px-4 py-3.5">
-                            <span className="font-semibold text-slate-900 block">{debt.debtor_full_name}</span>
+                            <span className="font-semibold text-slate-900 block">
+                              {debt.debtor_full_name && !debt.debtor_full_name.startsWith('Sistem Sahibi')
+                                ? debt.debtor_full_name
+                                : 'Hakan Tatlı'}
+                            </span>
                             <span className="text-[11px] text-slate-400 block">{formatPhone(debt.debtor_phone)}</span>
                           </td>
                           <td className="px-4 py-3.5">
                             {debt.type === 'monthly_due' && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                 Aylık Aidat
+                              </span>
+                            )}
+                            {debt.type === 'utility' && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                                Sayaç / Fatura
                               </span>
                             )}
                             {debt.type === 'fixture' && (
@@ -2195,7 +2216,11 @@ export function AdminDashboard() {
                             {p.block_name ? `${p.block_name} ` : ''}No: {p.door_number}
                           </td>
                           <td className="px-4 py-3.5">
-                            <span className="font-semibold text-slate-900 block">{p.debtor_full_name}</span>
+                            <span className="font-semibold text-slate-900 block">
+                              {p.debtor_full_name && !p.debtor_full_name.startsWith('Sistem Sahibi')
+                                ? p.debtor_full_name
+                                : 'Hakan Tatlı'}
+                            </span>
                             <span className="text-[11px] text-slate-400 block">{formatPhone(p.debtor_phone)}</span>
                           </td>
                           <td className="px-4 py-3.5">
@@ -2203,6 +2228,11 @@ export function AdminDashboard() {
                               {p.debt_type === 'monthly_due' && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                   Aidat {p.debt_due_month ? `(${p.debt_due_month.substring(0, 7)})` : ''}
+                                </span>
+                              )}
+                              {p.debt_type === 'utility' && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                                  Sayaç / Fatura {p.debt_due_month ? `(${p.debt_due_month.substring(0, 7)})` : ''}
                                 </span>
                               )}
                               {p.debt_type === 'fixture' && (
@@ -4222,6 +4252,14 @@ export function AdminDashboard() {
                     <div>
                       <span className="font-bold">Fazla Tahsilat Bilgisi: </span>
                       Kalan borcun üzerinde <strong>₺{(paymentForm.amount - selectedDebtForPayment.remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</strong> tutarında fazla ödeme alınıyor. Fazla miktar otomatik olarak ödeme notuna kaydedilecek ve borç tamamen kapatılacaktır.
+                    </div>
+                  </div>
+                ) : paymentForm.amount > 0 && paymentForm.amount < selectedDebtForPayment.remaining ? (
+                  <div className="mt-2 p-2.5 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl text-[11px] flex items-start gap-2">
+                    <Info className="w-4 h-4 shrink-0 text-blue-600 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Eksik / Kısmi Tahsilat Bilgisi: </span>
+                      Kalan borçtan <strong>₺{(selectedDebtForPayment.remaining - paymentForm.amount).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</strong> tutarında eksik ödeme alınıyor. Eksik miktar otomatik olarak ödeme notuna kaydedilecek ve kalan bakiye açık kalacaktır.
                     </div>
                   </div>
                 ) : (

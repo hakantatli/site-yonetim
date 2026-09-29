@@ -226,6 +226,19 @@ func (r *pgApartmentRepository) SoftDeleteApartment(ctx context.Context, id stri
 }
 
 func (r *pgApartmentRepository) SetApartmentOwner(ctx context.Context, id string, siteID string, ownerUserID string) error {
+	if r.pool != nil {
+		_, _ = r.pool.Exec(ctx, `
+			UPDATE debts d
+			SET debtor_user_id = $3, updated_at = NOW()
+			FROM apartments a
+			WHERE d.apartment_id = a.id
+			  AND a.id = $1
+			  AND a.site_id = $2
+			  AND a.owner_user_id IS NOT NULL
+			  AND d.debtor_user_id = a.owner_user_id
+		`, StringToUUID(id), StringToUUID(siteID), StringToUUID(ownerUserID))
+	}
+
 	return r.queries.SetApartmentOwner(ctx, db.SetApartmentOwnerParams{
 		ID:          StringToUUID(id),
 		SiteID:      StringToUUID(siteID),

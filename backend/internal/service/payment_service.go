@@ -59,7 +59,7 @@ func (s *paymentService) RecordPayment(ctx context.Context, siteID string, req d
 		return nil, domain.ErrDebtAlreadyPaid
 	}
 
-	// Fazla ödeme kontrolü: tahsilat kalan borçtan fazla ise aradaki fark otomatik olarak notlara işlenir
+	// Fazla ve eksik ödeme kontrolü: tahsilat kalan borçtan fazla veya eksik ise aradaki fark otomatik olarak notlara işlenir
 	finalNotes := req.Notes
 	if req.Amount > debt.Remaining {
 		excess := req.Amount - debt.Remaining
@@ -69,6 +69,15 @@ func (s *paymentService) RecordPayment(ctx context.Context, siteID string, req d
 			finalNotes = &combined
 		} else {
 			finalNotes = &excessTag
+		}
+	} else if req.Amount < debt.Remaining {
+		shortfall := debt.Remaining - req.Amount
+		shortfallTag := fmt.Sprintf("[Eksik Ödeme: ₺%.2f]", shortfall)
+		if req.Notes != nil && strings.TrimSpace(*req.Notes) != "" {
+			combined := fmt.Sprintf("%s %s", shortfallTag, strings.TrimSpace(*req.Notes))
+			finalNotes = &combined
+		} else {
+			finalNotes = &shortfallTag
 		}
 	}
 
