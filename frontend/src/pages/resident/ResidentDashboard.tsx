@@ -7,6 +7,7 @@ import { expenseApi } from '../../api/expense';
 import { meterApi } from '../../api/meter';
 import { announcementApi } from '../../api/announcement';
 import { residentApi } from '../../api/resident';
+import { formatPeriodMonthYear } from '../../utils/date';
 import {
   Home,
   LogOut,
@@ -317,7 +318,7 @@ export function ResidentDashboard() {
                                 {debt.type === 'monthly_due' ? 'Aidat Borcu' : debt.type === 'utility' ? 'Sayaç/Fatura Borcu' : 'Ek Borç / Demirbaş'}
                               </span>
                               <span className="text-xs text-slate-500">
-                                {debt.due_month && `${debt.due_month.substring(0, 7)} Dönemi`}
+                                {debt.due_month && `${formatPeriodMonthYear(debt.due_month) || debt.due_month.substring(0, 7)} Dönemi`}
                               </span>
                             </div>
                             <div className="text-right">
@@ -372,7 +373,16 @@ export function ResidentDashboard() {
                           </div>
                           <div>
                             <span className="font-semibold text-slate-800 text-xs block">
-                              {payment.debt_description || (payment.debt_type === 'monthly_due' ? 'Aidat Ödemesi' : 'Ödeme')}
+                              {(() => {
+                                const period = formatPeriodMonthYear(payment.debt_due_month, payment.debt_description);
+                                if (payment.debt_type === 'monthly_due') {
+                                  return period ? `${period} Aidat Ödemesi` : 'Aidat Ödemesi';
+                                }
+                                if (payment.debt_type === 'utility') {
+                                  return period ? `${period} Sayaç/Fatura Ödemesi` : 'Sayaç/Fatura Ödemesi';
+                                }
+                                return payment.debt_description || 'Ödeme';
+                              })()}
                             </span>
                             <span className="text-[11px] text-slate-500">
                               {new Date(payment.payment_date).toLocaleDateString('tr-TR')} • {payment.payment_method === 'cash' ? 'Nakit' : 'Havale/EFT'}

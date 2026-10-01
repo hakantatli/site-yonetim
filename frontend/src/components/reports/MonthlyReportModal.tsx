@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { paymentApi } from '../../api/payment';
 import { expenseApi } from '../../api/expense';
+import { formatDateTR, formatPeriodMonthYear, TURKISH_MONTH_NAMES } from '../../utils/date';
 import {
   Printer,
   X,
@@ -113,16 +114,6 @@ export function MonthlyReportModal({
     return expenses.reduce((sum, e) => sum + e.amount, 0);
   }, [reportType, payments, expenses]);
 
-  // Format date helper: YYYY-MM-DD -> DD.MM.YYYY
-  const formatDateTR = (dateStr?: string) => {
-    if (!dateStr) return '-';
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}.${parts[1]}.${parts[0]}`;
-    }
-    return dateStr;
-  };
-
   const escapeHtml = (str: string) =>
     str
       .replace(/&/g, '&amp;')
@@ -138,29 +129,37 @@ export function MonthlyReportModal({
           ? p.debtor_full_name
           : 'Hakan Tatlı';
 
+      const periodStr = formatPeriodMonthYear(p.debt_due_month, p.debt_description);
+
       let debtLabel = 'Diğer Ödeme';
       if (p.debt_type === 'monthly_due' || p.debt_type === 'routine') {
-        debtLabel = 'Aidat Ödemesi';
+        debtLabel = periodStr ? `${periodStr} Aidat Ödemesi` : 'Aidat Ödemesi';
       } else if (p.debt_type === 'utility') {
+        let meterName = 'Fatura';
         if (p.debt_description) {
           const match = p.debt_description.match(
             /^(?:\d{2}\/\d{4}\s+|\d{4}-\d{2}\s+)?(.+?)\s+Tüketim Bedeli/i
           );
           if (match && match[1]) {
-            const meterName = match[1].trim();
-            debtLabel = /fatura|ödeme/i.test(meterName) ? meterName : `${meterName} Faturası`;
+            meterName = match[1].trim();
           } else {
-            debtLabel = p.debt_description;
+            meterName = p.debt_description;
           }
-        } else {
-          debtLabel = 'Fatura Ödemesi';
         }
+        const baseLabel = /fatura|ödeme/i.test(meterName) ? meterName : `${meterName} Faturası`;
+        debtLabel = periodStr ? `${periodStr} ${baseLabel}` : baseLabel;
       } else if (p.debt_type === 'fixture') {
-        debtLabel = p.debt_description ? `Demirbaş — ${p.debt_description}` : 'Demirbaş Ödemesi';
+        const cleanDesc = p.debt_description ? ` — ${p.debt_description}` : ' Ödemesi';
+        debtLabel = periodStr ? `${periodStr} Demirbaş${cleanDesc}` : `Demirbaş${cleanDesc}`;
       } else if (p.debt_type === 'investment') {
-        debtLabel = p.debt_description ? `Yatırım — ${p.debt_description}` : 'Yatırım Ödemesi';
+        const cleanDesc = p.debt_description ? ` — ${p.debt_description}` : ' Ödemesi';
+        debtLabel = periodStr ? `${periodStr} Yatırım${cleanDesc}` : `Yatırım${cleanDesc}`;
       } else if (p.debt_description) {
-        debtLabel = p.debt_description;
+        debtLabel = periodStr && !p.debt_description.includes(periodStr)
+          ? `${periodStr} ${p.debt_description}`
+          : p.debt_description;
+      } else {
+        debtLabel = periodStr ? `${periodStr} Ödeme` : 'Diğer Ödeme';
       }
 
       let noteText = p.notes || '';
@@ -187,15 +186,38 @@ export function MonthlyReportModal({
   }, [payments]);
 
   const formattedExpenseRows = useMemo(() => {
-    return expenses.map((exp, idx) => ({
-      id: exp.id,
-      no: idx + 1,
-      date: formatDateTR(exp.expense_date),
-      category: `[${exp.category_name}]`,
-      description: exp.description || 'Masraf kaydı',
-      receipt: exp.receipt_note ? `(Fiş/Makbuz No: ${exp.receipt_note})` : '',
-      amountFormatted: `₺${exp.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`,
-    }));
+    return expenses.map((exp, idx) => {
+      let desc = exp.description?.trim() || 'Masraf kaydı';
+
+      // Format raw "MM/YYYY" or "YYYY-MM" in description to Turkish month name
+      desc = desc.replace(/\b(0[1-9]|1[0-2])\/(\d{4})\b/g, (_, m, y) => {
+        const mIdx = parseInt(m, 10) - 1;
+        return `${TURKISH_MONTH_NAMES[mIdx]} ${y}`;
+      });
+      desc = desc.replace(/\b(\d{4})-(0[1-9]|1[0-2])\b/g, (_, y, m) => {
+        const mIdx = parseInt(m, 10) - 1;
+        return `${TURKISH_MONTH_NAMES[mIdx]} ${y}`;
+      });
+
+      // If description has no month mentioned and belongs to periodic items (fatura, bakım, aidat vb.), prepend month from expense_date
+      const hasMonth = /(?:Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)\s+\d{4}/i.test(desc);
+      if (!hasMonth && /fatura|bakım|aidat|tüketim|onarım|servis/i.test(`${exp.category_name} ${desc}`)) {
+        const expPeriod = formatPeriodMonthYear(exp.expense_date, '');
+        if (expPeriod) {
+          desc = `${expPeriod} ${desc}`;
+        }
+      }
+
+      return {
+        id: exp.id,
+        no: idx + 1,
+        date: formatDateTR(exp.expense_date),
+        category: `[${exp.category_name}]`,
+        description: desc,
+        receipt: exp.receipt_note ? `(Fiş/Makbuz No: ${exp.receipt_note})` : '',
+        amountFormatted: `₺${exp.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`,
+      };
+    });
   }, [expenses]);
 
   const handlePrint = () => {

@@ -23,6 +23,7 @@ import type { RecordPaymentRequest, PaymentMethod } from '../../types/payment';
 import type { ExpenseCategory, CreateExpensePayload } from '../../types/expense';
 import type { Announcement } from '../../types/announcement';
 import { maskPhoneInput, cleanPhone, formatPhone } from '../../utils/phone';
+import { formatPeriodMonthYear } from '../../utils/date';
 import {
   Building,
   Plus,
@@ -2227,22 +2228,22 @@ export function AdminDashboard() {
                             <div className="flex items-center gap-1.5">
                               {p.debt_type === 'monthly_due' && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                  Aidat {p.debt_due_month ? `(${p.debt_due_month.substring(0, 7)})` : ''}
+                                  Aidat {formatPeriodMonthYear(p.debt_due_month, p.debt_description) ? `(${formatPeriodMonthYear(p.debt_due_month, p.debt_description)})` : ''}
                                 </span>
                               )}
                               {p.debt_type === 'utility' && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
-                                  Sayaç / Fatura {p.debt_due_month ? `(${p.debt_due_month.substring(0, 7)})` : ''}
+                                  Sayaç / Fatura {formatPeriodMonthYear(p.debt_due_month, p.debt_description) ? `(${formatPeriodMonthYear(p.debt_due_month, p.debt_description)})` : ''}
                                 </span>
                               )}
                               {p.debt_type === 'fixture' && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                  Demirbaş
+                                  Demirbaş {formatPeriodMonthYear(p.debt_due_month, p.debt_description) ? `(${formatPeriodMonthYear(p.debt_due_month, p.debt_description)})` : ''}
                                 </span>
                               )}
                               {p.debt_type === 'investment' && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                                  Yatırım
+                                  Yatırım {formatPeriodMonthYear(p.debt_due_month, p.debt_description) ? `(${formatPeriodMonthYear(p.debt_due_month, p.debt_description)})` : ''}
                                 </span>
                               )}
                               {p.debt_type === 'other' && (
