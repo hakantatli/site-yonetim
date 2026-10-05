@@ -122,7 +122,7 @@ export function LoginPage() {
                   required
                   value={loginIdentifier}
                   onChange={handleIdentifierChange}
-                  placeholder="0(506) 658 8775 veya ornek@site.com"
+                  placeholder="5XX XXX XX XX veya e-posta adresi"
                   className="block w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
               </div>

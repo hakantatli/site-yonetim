@@ -3263,7 +3263,7 @@ export function AdminDashboard() {
                     <input
                       type="tel"
                       required
-                      placeholder="Telefon Numarası * 0(506) 658 8775"
+                      placeholder="Telefon Numarası * 5XX XXX XX XX"
                       value={newApt.owner?.phone || ''}
                       onChange={(e) => setNewApt({ ...newApt, owner: { ...newApt.owner!, phone: maskPhoneInput(e.target.value) } })}
                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg"
@@ -3316,7 +3316,7 @@ export function AdminDashboard() {
                     <input
                       type="tel"
                       required
-                      placeholder="Kiracı Telefon * 0(506) 658 8775"
+                      placeholder="Kiracı Telefon * 5XX XXX XX XX"
                       value={newApt.tenant?.phone || ''}
                       onChange={(e) => setNewApt({ ...newApt, tenant: { ...newApt.tenant!, phone: maskPhoneInput(e.target.value) } })}
                       className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg"
@@ -3472,7 +3472,7 @@ export function AdminDashboard() {
                 <input
                   type="tel"
                   required
-                  placeholder="0(506) 658 8775"
+                  placeholder="5XX XXX XX XX"
                   value={residentForm.phone}
                   onChange={(e) => setResidentForm({ ...residentForm, phone: maskPhoneInput(e.target.value) })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"

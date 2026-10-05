@@ -457,7 +457,7 @@ export function SiteDetailPage() {
                   <input
                     type="tel"
                     required
-                    placeholder="0(506) 658 8775"
+                    placeholder="5XX XXX XX XX"
                     value={adminForm.phone}
                     onChange={(e) => setAdminForm({ ...adminForm, phone: maskPhoneInput(e.target.value) })}
                     className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
