@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -17,17 +18,20 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("geçersiz telefon numarası / e-posta veya şifre")
-	ErrUserInactive       = errors.New("kullanıcı hesabı pasif durumda")
-	ErrInvalidToken       = errors.New("geçersiz veya süresi dolmuş oturum")
+	ErrInvalidCredentials     = errors.New("geçersiz telefon numarası / e-posta veya şifre")
+	ErrUserInactive           = errors.New("kullanıcı hesabı pasif durumda")
+	ErrInvalidToken           = errors.New("geçersiz veya süresi dolmuş oturum")
+	ErrInvalidCurrentPassword = errors.New("mevcut şifre hatalı")
+	ErrPasswordTooShort       = errors.New("yeni şifre en az 6 karakter olmalıdır")
 )
 
 type JWTClaims struct {
-	UserID string          `json:"user_id"`
-	Phone  string          `json:"phone"`
-	Email  *string         `json:"email,omitempty"`
-	Role   domain.UserRole `json:"role"`
-	SiteID *string         `json:"site_id,omitempty"`
+	UserID             string          `json:"user_id"`
+	Phone              string          `json:"phone"`
+	Email              *string         `json:"email,omitempty"`
+	Role               domain.UserRole `json:"role"`
+	SiteID             *string         `json:"site_id,omitempty"`
+	MustChangePassword bool            `json:"must_change_password"`
 	jwt.RegisteredClaims
 }
 
@@ -37,6 +41,8 @@ type AuthService interface {
 	Logout(ctx context.Context, rawRefreshToken string) error
 	ValidateToken(tokenString string) (*JWTClaims, error)
 	SeedOwnerIfEmpty(ctx context.Context, phone string, email *string, password string, fullName string) error
+	ChangePassword(ctx context.Context, userID string, req domain.ChangePasswordRequest) (*domain.TokenPair, error)
+	DismissPasswordChange(ctx context.Context, userID string) error
 }
 
 type authService struct {
@@ -161,16 +167,69 @@ func (s *authService) SeedOwnerIfEmpty(ctx context.Context, phone string, email 
 	return err
 }
 
+func (s *authService) ChangePassword(ctx context.Context, userID string, req domain.ChangePasswordRequest) (*domain.TokenPair, error) {
+	newPassword := strings.TrimSpace(req.NewPassword)
+	if len(newPassword) < 6 {
+		return nil, ErrPasswordTooShort
+	}
+
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !user.IsActive {
+		return nil, ErrUserInactive
+	}
+
+	// Verify current password if user is not in must_change_password mode, or if provided.
+	if !user.MustChangePassword || (req.CurrentPassword != nil && strings.TrimSpace(*req.CurrentPassword) != "") {
+		if req.CurrentPassword == nil || strings.TrimSpace(*req.CurrentPassword) == "" {
+			return nil, ErrInvalidCurrentPassword
+		}
+		_, passwordHash, err := s.userRepo.GetByPhoneOrEmail(ctx, user.Phone)
+		if err != nil {
+			return nil, err
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(strings.TrimSpace(*req.CurrentPassword))); err != nil {
+			return nil, ErrInvalidCurrentPassword
+		}
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.userRepo.UpdateUserPassword(ctx, userID, string(hash), false); err != nil {
+		return nil, err
+	}
+
+	user.MustChangePassword = false
+	return s.generateTokenPair(ctx, user)
+}
+
+func (s *authService) DismissPasswordChange(ctx context.Context, userID string) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if !user.IsActive {
+		return ErrUserInactive
+	}
+	return s.userRepo.SetMustChangePassword(ctx, userID, false)
+}
+
 func (s *authService) generateTokenPair(ctx context.Context, user *domain.User) (*domain.TokenPair, error) {
 	now := time.Now()
 	accessExpiresAt := now.Add(s.cfg.JWTAccessTTL)
 
 	claims := JWTClaims{
-		UserID: user.ID,
-		Phone:  user.Phone,
-		Email:  user.Email,
-		Role:   user.Role,
-		SiteID: user.SiteID,
+		UserID:             user.ID,
+		Phone:              user.Phone,
+		Email:              user.Email,
+		Role:               user.Role,
+		SiteID:             user.SiteID,
+		MustChangePassword: user.MustChangePassword,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.ID,
 			IssuedAt:  jwt.NewNumericDate(now),

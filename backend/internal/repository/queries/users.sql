@@ -25,9 +25,10 @@ INSERT INTO users (
     password_hash,
     full_name,
     role,
-    is_active
+    is_active,
+    must_change_password
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
+    $1, $2, $3, $4, $5, $6, $7, $8
 )
 RETURNING *;
 
@@ -42,7 +43,7 @@ SELECT COUNT(*) FROM users
 WHERE role = $1;
 
 -- name: ListAdminsBySiteID :many
-SELECT id, site_id, email, full_name, phone, role, is_active, created_at, updated_at
+SELECT id, site_id, email, full_name, phone, role, is_active, must_change_password, created_at, updated_at
 FROM users
 WHERE site_id = $1 AND role = 'admin'
 ORDER BY created_at DESC;
@@ -59,7 +60,16 @@ RETURNING *;
 -- name: UpdateUserPassword :one
 UPDATE users
 SET password_hash = $2,
+    must_change_password = $3,
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;
+
+-- name: SetMustChangePassword :one
+UPDATE users
+SET must_change_password = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
 

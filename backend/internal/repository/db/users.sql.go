@@ -31,21 +31,23 @@ INSERT INTO users (
     password_hash,
     full_name,
     role,
-    is_active
+    is_active,
+    must_change_password
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
+    $1, $2, $3, $4, $5, $6, $7, $8
 )
-RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at
+RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at, must_change_password
 `
 
 type CreateUserParams struct {
-	SiteID       pgtype.UUID `json:"site_id"`
-	Phone        string      `json:"phone"`
-	Email        pgtype.Text `json:"email"`
-	PasswordHash string      `json:"password_hash"`
-	FullName     string      `json:"full_name"`
-	Role         string      `json:"role"`
-	IsActive     bool        `json:"is_active"`
+	SiteID             pgtype.UUID `json:"site_id"`
+	Phone              string      `json:"phone"`
+	Email              pgtype.Text `json:"email"`
+	PasswordHash       string      `json:"password_hash"`
+	FullName           string      `json:"full_name"`
+	Role               string      `json:"role"`
+	IsActive           bool        `json:"is_active"`
+	MustChangePassword bool        `json:"must_change_password"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Users, error) {
@@ -57,6 +59,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Users, 
 		arg.FullName,
 		arg.Role,
 		arg.IsActive,
+		arg.MustChangePassword,
 	)
 	var i Users
 	err := row.Scan(
@@ -70,12 +73,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Users, 
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MustChangePassword,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at FROM users
+SELECT id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at, must_change_password FROM users
 WHERE email = $1
 LIMIT 1
 `
@@ -94,12 +98,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email pgtype.Text) (Users,
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MustChangePassword,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at FROM users
+SELECT id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at, must_change_password FROM users
 WHERE id = $1 LIMIT 1
 `
 
@@ -117,12 +122,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MustChangePassword,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at FROM users
+SELECT id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at, must_change_password FROM users
 WHERE phone = $1
 LIMIT 1
 `
@@ -141,12 +147,13 @@ func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (Users, erro
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MustChangePassword,
 	)
 	return i, err
 }
 
 const getUserByPhoneOrEmail = `-- name: GetUserByPhoneOrEmail :one
-SELECT id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at FROM users
+SELECT id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at, must_change_password FROM users
 WHERE phone = $1 OR (email = $1 AND email IS NOT NULL)
 LIMIT 1
 `
@@ -165,27 +172,29 @@ func (q *Queries) GetUserByPhoneOrEmail(ctx context.Context, phone string) (User
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MustChangePassword,
 	)
 	return i, err
 }
 
 const listAdminsBySiteID = `-- name: ListAdminsBySiteID :many
-SELECT id, site_id, email, full_name, phone, role, is_active, created_at, updated_at
+SELECT id, site_id, email, full_name, phone, role, is_active, must_change_password, created_at, updated_at
 FROM users
 WHERE site_id = $1 AND role = 'admin'
 ORDER BY created_at DESC
 `
 
 type ListAdminsBySiteIDRow struct {
-	ID        pgtype.UUID        `json:"id"`
-	SiteID    pgtype.UUID        `json:"site_id"`
-	Email     pgtype.Text        `json:"email"`
-	FullName  string             `json:"full_name"`
-	Phone     string             `json:"phone"`
-	Role      string             `json:"role"`
-	IsActive  bool               `json:"is_active"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID                 pgtype.UUID        `json:"id"`
+	SiteID             pgtype.UUID        `json:"site_id"`
+	Email              pgtype.Text        `json:"email"`
+	FullName           string             `json:"full_name"`
+	Phone              string             `json:"phone"`
+	Role               string             `json:"role"`
+	IsActive           bool               `json:"is_active"`
+	MustChangePassword bool               `json:"must_change_password"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) ListAdminsBySiteID(ctx context.Context, siteID pgtype.UUID) ([]ListAdminsBySiteIDRow, error) {
@@ -205,6 +214,7 @@ func (q *Queries) ListAdminsBySiteID(ctx context.Context, siteID pgtype.UUID) ([
 			&i.Phone,
 			&i.Role,
 			&i.IsActive,
+			&i.MustChangePassword,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -218,6 +228,38 @@ func (q *Queries) ListAdminsBySiteID(ctx context.Context, siteID pgtype.UUID) ([
 	return items, nil
 }
 
+const setMustChangePassword = `-- name: SetMustChangePassword :one
+UPDATE users
+SET must_change_password = $2,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at, must_change_password
+`
+
+type SetMustChangePasswordParams struct {
+	ID                 pgtype.UUID `json:"id"`
+	MustChangePassword bool        `json:"must_change_password"`
+}
+
+func (q *Queries) SetMustChangePassword(ctx context.Context, arg SetMustChangePasswordParams) (Users, error) {
+	row := q.db.QueryRow(ctx, setMustChangePassword, arg.ID, arg.MustChangePassword)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.SiteID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.Phone,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.MustChangePassword,
+	)
+	return i, err
+}
+
 const updateUserDetails = `-- name: UpdateUserDetails :one
 UPDATE users
 SET full_name = $2,
@@ -225,7 +267,7 @@ SET full_name = $2,
     email = $4,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at
+RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at, must_change_password
 `
 
 type UpdateUserDetailsParams struct {
@@ -254,6 +296,7 @@ func (q *Queries) UpdateUserDetails(ctx context.Context, arg UpdateUserDetailsPa
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MustChangePassword,
 	)
 	return i, err
 }
@@ -261,18 +304,20 @@ func (q *Queries) UpdateUserDetails(ctx context.Context, arg UpdateUserDetailsPa
 const updateUserPassword = `-- name: UpdateUserPassword :one
 UPDATE users
 SET password_hash = $2,
+    must_change_password = $3,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at
+RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at, must_change_password
 `
 
 type UpdateUserPasswordParams struct {
-	ID           pgtype.UUID `json:"id"`
-	PasswordHash string      `json:"password_hash"`
+	ID                 pgtype.UUID `json:"id"`
+	PasswordHash       string      `json:"password_hash"`
+	MustChangePassword bool        `json:"must_change_password"`
 }
 
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (Users, error) {
-	row := q.db.QueryRow(ctx, updateUserPassword, arg.ID, arg.PasswordHash)
+	row := q.db.QueryRow(ctx, updateUserPassword, arg.ID, arg.PasswordHash, arg.MustChangePassword)
 	var i Users
 	err := row.Scan(
 		&i.ID,
@@ -285,6 +330,7 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MustChangePassword,
 	)
 	return i, err
 }
@@ -293,7 +339,7 @@ const updateUserStatus = `-- name: UpdateUserStatus :one
 UPDATE users
 SET is_active = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at
+RETURNING id, site_id, email, password_hash, full_name, phone, role, is_active, created_at, updated_at, must_change_password
 `
 
 type UpdateUserStatusParams struct {
@@ -315,6 +361,7 @@ func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusPara
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MustChangePassword,
 	)
 	return i, err
 }

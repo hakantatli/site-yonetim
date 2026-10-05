@@ -24,12 +24,14 @@ import type { ExpenseCategory, CreateExpensePayload } from '../../types/expense'
 import type { Announcement } from '../../types/announcement';
 import { maskPhoneInput, cleanPhone, formatPhone } from '../../utils/phone';
 import { formatPeriodMonthYear } from '../../utils/date';
+import { ChangePasswordModal } from '../../components/auth/ChangePasswordModal';
 import {
   Building,
   Plus,
   Home,
   Layers,
   LogOut,
+  KeyRound,
   ArrowLeft,
   ArrowLeftRight,
   UserCheck,
@@ -116,6 +118,9 @@ export function AdminDashboard() {
   // Monthly Report Modal
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportModalType, setReportModalType] = useState<'income' | 'expense'>('income');
+
+  // Change Password Modal
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   // Site Details (when owner views a specific site)
   const { data: siteDetails } = useQuery({
@@ -893,6 +898,14 @@ export function AdminDashboard() {
               <Shield className="w-4 h-4 text-indigo-600" />
               <span>{user?.full_name}</span>
             </div>
+            <button
+              onClick={() => setIsPasswordModalOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
+              title="Şifrenizi Değiştirin"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-slate-500" />
+              <span className="hidden sm:inline">Şifre Değiştir</span>
+            </button>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-medium py-1.5 px-3 rounded-lg hover:bg-rose-50 transition-colors"
@@ -4977,6 +4990,12 @@ export function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
     </div>
   );
 }

@@ -41,6 +41,7 @@
 - **Owner & Yönetici:** Kendi telefon numarası ve şifreleriyle sisteme giriş yapar.
 - **Sakinler (Ev Sahibi / Kiracı):** Yönetici sakinleri sisteme eklerken telefon numaralarını zorunlu girer, onlar adına şifre belirler ve hesaplarını oluşturur.
 - **Şifre Güvenliği:** Tüm şifreler **bcrypt** ile hashlenerek saklanır. Hiçbir şifre düz metin olarak tutulmaz.
+- **İlk Girişte Şifre Değiştirme ve Şifre Güncelleme:** Yönetici tarafından sakinler için ilk kez şifre belirlendiğinde veya şifreleri yönetici tarafından güncellendiğinde kullanıcıya `must_change_password` bayrağı atanır. Sakin ilk giriş yaptığında yeni şifre oluşturma adımı (modal) gösterilir; sakin dilerse yeni şifre belirleyebilir, dilerse "Şimdi Değil" seçeneğiyle mevcut şifresiyle devam edebilir. Ayrıca hem sakinler hem de yöneticiler için portal üst menüsünde diledikleri an şifrelerini değiştirebilecekleri "Şifre Değiştir" bağlantısı yer alır.
 - **Token:** JWT tabanlı kimlik doğrulama (Access Token kısa süreli + Refresh Token DB'de saklanır). JWT payload'ında `user_id`, `phone`, `role` ve `site_id` bilgisi bulunur; bu bilgi site izolasyonu middleware'i tarafından kullanılır.
 
 ---

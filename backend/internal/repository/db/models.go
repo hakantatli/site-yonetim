@@ -201,14 +201,15 @@ type TenantHistory struct {
 }
 
 type Users struct {
-	ID           pgtype.UUID        `json:"id"`
-	SiteID       pgtype.UUID        `json:"site_id"`
-	Email        pgtype.Text        `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	FullName     string             `json:"full_name"`
-	Phone        string             `json:"phone"`
-	Role         string             `json:"role"`
-	IsActive     bool               `json:"is_active"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID                 pgtype.UUID        `json:"id"`
+	SiteID             pgtype.UUID        `json:"site_id"`
+	Email              pgtype.Text        `json:"email"`
+	PasswordHash       string             `json:"password_hash"`
+	FullName           string             `json:"full_name"`
+	Phone              string             `json:"phone"`
+	Role               string             `json:"role"`
+	IsActive           bool               `json:"is_active"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	MustChangePassword bool               `json:"must_change_password"`
 }

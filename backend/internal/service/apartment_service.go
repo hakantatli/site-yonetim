@@ -307,12 +307,13 @@ func (s *apartmentService) findOrCreateResident(ctx context.Context, siteID stri
 	}
 
 	newUser := &domain.User{
-		SiteID:   &siteID,
-		Phone:    res.Phone,
-		Email:    res.Email,
-		FullName: res.FullName,
-		Role:     domain.RoleResident,
-		IsActive: true,
+		SiteID:             &siteID,
+		Phone:              res.Phone,
+		Email:              res.Email,
+		FullName:           res.FullName,
+		Role:               domain.RoleResident,
+		IsActive:           true,
+		MustChangePassword: true,
 	}
 
 	created, err := s.userRepo.Create(ctx, newUser, string(hash))
@@ -393,7 +394,7 @@ func (s *apartmentService) UpdateResident(ctx context.Context, siteID string, re
 		if err != nil {
 			return nil, err
 		}
-		if err := s.userRepo.UpdateUserPassword(ctx, residentID, string(hash)); err != nil {
+		if err := s.userRepo.UpdateUserPassword(ctx, residentID, string(hash), true); err != nil {
 			return nil, err
 		}
 	}

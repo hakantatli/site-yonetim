@@ -14,15 +14,21 @@ const (
 )
 
 type User struct {
-	ID        string    `json:"id"`
-	SiteID    *string   `json:"site_id,omitempty"`
-	Phone     string    `json:"phone"`           // Zorunlu alan
-	Email     *string   `json:"email,omitempty"` // Opsiyonel alan
-	FullName  string    `json:"full_name"`
-	Role      UserRole  `json:"role"`
-	IsActive  bool      `json:"is_active"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`
+	SiteID             *string   `json:"site_id,omitempty"`
+	Phone              string    `json:"phone"`           // Zorunlu alan
+	Email              *string   `json:"email,omitempty"` // Opsiyonel alan
+	FullName           string    `json:"full_name"`
+	Role               UserRole  `json:"role"`
+	IsActive           bool      `json:"is_active"`
+	MustChangePassword bool      `json:"must_change_password"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword *string `json:"current_password,omitempty"`
+	NewPassword     string  `json:"new_password"`
 }
 
 type TokenPair struct {

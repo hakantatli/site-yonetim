@@ -95,6 +95,7 @@ type Querier interface {
 	SetApartmentDueExempt(ctx context.Context, arg SetApartmentDueExemptParams) error
 	SetApartmentOwner(ctx context.Context, arg SetApartmentOwnerParams) error
 	SetApartmentTenant(ctx context.Context, arg SetApartmentTenantParams) error
+	SetMustChangePassword(ctx context.Context, arg SetMustChangePasswordParams) (Users, error)
 	SoftDeleteApartment(ctx context.Context, arg SoftDeleteApartmentParams) error
 	TransferOpenDebtsToOwner(ctx context.Context, arg TransferOpenDebtsToOwnerParams) error
 	UpdateAnnouncement(ctx context.Context, arg UpdateAnnouncementParams) (Announcements, error)

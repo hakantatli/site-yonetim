@@ -37,6 +37,8 @@ func (h *AuthHandler) Routes() chi.Router {
 	r.Group(func(protected chi.Router) {
 		protected.Use(middleware.AuthMiddleware(h.authService))
 		protected.Get("/me", h.Me)
+		protected.Post("/change-password", h.ChangePassword)
+		protected.Post("/dismiss-password-change", h.DismissPasswordChange)
 	})
 
 	return r
@@ -112,12 +114,62 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"user_id": claims.UserID,
-		"phone":   claims.Phone,
-		"email":   claims.Email,
-		"role":    claims.Role,
-		"site_id": claims.SiteID,
+		"user_id":              claims.UserID,
+		"phone":                claims.Phone,
+		"email":                claims.Email,
+		"role":                 claims.Role,
+		"site_id":              claims.SiteID,
+		"must_change_password": claims.MustChangePassword,
 	})
+}
+
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok {
+		respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "oturum doğrulanamadı"})
+		return
+	}
+
+	var req domain.ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz istek gövdesi"})
+		return
+	}
+
+	tokenPair, err := h.authService.ChangePassword(r.Context(), claims.UserID, req)
+	if err != nil {
+		if errors.Is(err, service.ErrPasswordTooShort) {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "yeni şifre en az 6 karakter olmalıdır"})
+			return
+		}
+		if errors.Is(err, service.ErrInvalidCurrentPassword) {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "mevcut şifreniz hatalı"})
+			return
+		}
+		if errors.Is(err, service.ErrUserInactive) {
+			respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcı hesabı pasif durumda"})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "şifre güncellenirken bir hata oluştu"})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, tokenPair)
+}
+
+func (h *AuthHandler) DismissPasswordChange(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok {
+		respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "oturum doğrulanamadı"})
+		return
+	}
+
+	if err := h.authService.DismissPasswordChange(r.Context(), claims.UserID); err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "işlem gerçekleştirilemedi"})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "şifre değişikliği adımı atlandı"})
 }
 
 func respondJSON(w http.ResponseWriter, status int, data interface{}) {

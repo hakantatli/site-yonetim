@@ -8,6 +8,7 @@ export interface User {
   role: 'owner' | 'admin' | 'resident';
   site_id?: string | null;
   is_active: boolean;
+  must_change_password?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +25,11 @@ export interface LoginPayload {
   phone?: string;
   email?: string;
   password: string;
+}
+
+export interface ChangePasswordPayload {
+  current_password?: string;
+  new_password: string;
 }
 
 export const authApi = {
@@ -52,8 +58,17 @@ export const authApi = {
     }
   },
 
-  getMe: async (): Promise<{ user_id: string; email: string; role: 'owner' | 'admin' | 'resident'; site_id?: string | null }> => {
+  getMe: async (): Promise<{ user_id: string; email: string; role: 'owner' | 'admin' | 'resident'; site_id?: string | null; must_change_password?: boolean }> => {
     const { data } = await apiClient.get('/auth/me');
     return data;
+  },
+
+  changePassword: async (payload: ChangePasswordPayload): Promise<TokenPairResponse> => {
+    const { data } = await apiClient.post<TokenPairResponse>('/auth/change-password', payload);
+    return data;
+  },
+
+  dismissPasswordChange: async (): Promise<void> => {
+    await apiClient.post('/auth/dismiss-password-change');
   },
 };

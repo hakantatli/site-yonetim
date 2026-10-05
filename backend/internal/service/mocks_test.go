@@ -19,7 +19,8 @@ type mockUserRepository struct {
 	countOwnersFn       func(ctx context.Context) (int64, error)
 	listAdminsBySiteIDFn func(ctx context.Context, siteID string) ([]domain.User, error)
 	updateUserDetailsFn func(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error)
-	updateUserPasswordFn func(ctx context.Context, id string, passwordHash string) error
+	updateUserPasswordFn func(ctx context.Context, id string, passwordHash string, mustChangePassword bool) error
+	setMustChangePasswordFn func(ctx context.Context, id string, mustChangePassword bool) error
 }
 
 func (m *mockUserRepository) GetByPhoneOrEmail(ctx context.Context, identifier string) (*domain.User, string, error) {
@@ -83,9 +84,16 @@ func (m *mockUserRepository) UpdateUserDetails(ctx context.Context, id string, f
 	}, nil
 }
 
-func (m *mockUserRepository) UpdateUserPassword(ctx context.Context, id string, passwordHash string) error {
+func (m *mockUserRepository) UpdateUserPassword(ctx context.Context, id string, passwordHash string, mustChangePassword bool) error {
 	if m.updateUserPasswordFn != nil {
-		return m.updateUserPasswordFn(ctx, id, passwordHash)
+		return m.updateUserPasswordFn(ctx, id, passwordHash, mustChangePassword)
+	}
+	return nil
+}
+
+func (m *mockUserRepository) SetMustChangePassword(ctx context.Context, id string, mustChangePassword bool) error {
+	if m.setMustChangePasswordFn != nil {
+		return m.setMustChangePasswordFn(ctx, id, mustChangePassword)
 	}
 	return nil
 }

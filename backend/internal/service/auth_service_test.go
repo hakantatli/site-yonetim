@@ -143,3 +143,167 @@ func TestAuthService_ValidateToken(t *testing.T) {
 		t.Fatalf("expected error for tampered token, got nil")
 	}
 }
+
+func TestAuthService_ChangePassword(t *testing.T) {
+	ctx := context.Background()
+	cfg := newTestConfig()
+
+	oldPass := "OldPass123!"
+	oldHash, err := bcrypt.GenerateFromPassword([]byte(oldPass), bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("bcrypt err: %v", err)
+	}
+
+	t.Run("fails when new password is too short", func(t *testing.T) {
+		svc := NewAuthService(cfg, &mockUserRepository{}, &mockTokenRepository{})
+		_, err := svc.ChangePassword(ctx, "user-1", domain.ChangePasswordRequest{
+			NewPassword: "123",
+		})
+		if err != ErrPasswordTooShort {
+			t.Fatalf("expected ErrPasswordTooShort, got %v", err)
+		}
+	})
+
+	t.Run("requires and validates current password when MustChangePassword is false", func(t *testing.T) {
+		user := &domain.User{
+			ID:                 "user-1",
+			Phone:              "05551112233",
+			IsActive:           true,
+			MustChangePassword: false,
+		}
+
+		userRepo := &mockUserRepository{
+			getByIDFn: func(ctx context.Context, id string) (*domain.User, error) {
+				return user, nil
+			},
+			getByPhoneOrEmailFn: func(ctx context.Context, identifier string) (*domain.User, string, error) {
+				return user, string(oldHash), nil
+			},
+		}
+
+		svc := NewAuthService(cfg, userRepo, &mockTokenRepository{})
+
+		// Missing current password
+		_, err := svc.ChangePassword(ctx, "user-1", domain.ChangePasswordRequest{
+			NewPassword: "NewSecret123!",
+		})
+		if err != ErrInvalidCurrentPassword {
+			t.Fatalf("expected ErrInvalidCurrentPassword, got %v", err)
+		}
+
+		// Wrong current password
+		wrongPass := "WrongPass123!"
+		_, err = svc.ChangePassword(ctx, "user-1", domain.ChangePasswordRequest{
+			CurrentPassword: &wrongPass,
+			NewPassword:     "NewSecret123!",
+		})
+		if err != ErrInvalidCurrentPassword {
+			t.Fatalf("expected ErrInvalidCurrentPassword, got %v", err)
+		}
+
+		// Correct current password
+		pwdUpdated := false
+		var passedFlag bool
+		userRepo.updateUserPasswordFn = func(ctx context.Context, id string, passwordHash string, mustChangePassword bool) error {
+			pwdUpdated = true
+			passedFlag = mustChangePassword
+			return nil
+		}
+		tokenRepo := &mockTokenRepository{
+			createRefreshTokenFn: func(ctx context.Context, userID string, tokenHash string, expiresAt time.Time) error {
+				return nil
+			},
+		}
+
+		svc = NewAuthService(cfg, userRepo, tokenRepo)
+		tokens, err := svc.ChangePassword(ctx, "user-1", domain.ChangePasswordRequest{
+			CurrentPassword: &oldPass,
+			NewPassword:     "NewSecret123!",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !pwdUpdated || passedFlag {
+			t.Fatalf("expected password update with mustChangePassword=false")
+		}
+		if tokens.User.MustChangePassword {
+			t.Fatalf("expected tokens.User.MustChangePassword to be false")
+		}
+	})
+
+	t.Run("allows changing password without current password when MustChangePassword is true", func(t *testing.T) {
+		user := &domain.User{
+			ID:                 "user-res",
+			Phone:              "05559998877",
+			IsActive:           true,
+			MustChangePassword: true,
+		}
+
+		pwdUpdated := false
+		userRepo := &mockUserRepository{
+			getByIDFn: func(ctx context.Context, id string) (*domain.User, error) {
+				return user, nil
+			},
+			updateUserPasswordFn: func(ctx context.Context, id string, passwordHash string, mustChangePassword bool) error {
+				pwdUpdated = true
+				if mustChangePassword {
+					t.Errorf("expected mustChangePassword to be false after change")
+				}
+				return nil
+			},
+		}
+		tokenRepo := &mockTokenRepository{
+			createRefreshTokenFn: func(ctx context.Context, userID string, tokenHash string, expiresAt time.Time) error {
+				return nil
+			},
+		}
+
+		svc := NewAuthService(cfg, userRepo, tokenRepo)
+		tokens, err := svc.ChangePassword(ctx, "user-res", domain.ChangePasswordRequest{
+			NewPassword: "BrandNewPassword123!",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !pwdUpdated {
+			t.Fatalf("expected updateUserPassword to be called")
+		}
+		if tokens.User.MustChangePassword {
+			t.Fatalf("expected returned user to have MustChangePassword=false")
+		}
+	})
+}
+
+func TestAuthService_DismissPasswordChange(t *testing.T) {
+	ctx := context.Background()
+	cfg := newTestConfig()
+
+	user := &domain.User{
+		ID:                 "user-res",
+		IsActive:           true,
+		MustChangePassword: true,
+	}
+
+	flagSet := false
+	userRepo := &mockUserRepository{
+		getByIDFn: func(ctx context.Context, id string) (*domain.User, error) {
+			return user, nil
+		},
+		setMustChangePasswordFn: func(ctx context.Context, id string, mustChangePassword bool) error {
+			if !mustChangePassword {
+				flagSet = true
+			}
+			return nil
+		},
+	}
+
+	svc := NewAuthService(cfg, userRepo, &mockTokenRepository{})
+	err := svc.DismissPasswordChange(ctx, "user-res")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !flagSet {
+		t.Fatalf("expected setMustChangePasswordFn to be called with false")
+	}
+}
+

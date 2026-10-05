@@ -23,7 +23,8 @@ type UserRepository interface {
 	CountOwners(ctx context.Context) (int64, error)
 	ListAdminsBySiteID(ctx context.Context, siteID string) ([]domain.User, error)
 	UpdateUserDetails(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error)
-	UpdateUserPassword(ctx context.Context, id string, passwordHash string) error
+	UpdateUserPassword(ctx context.Context, id string, passwordHash string, mustChangePassword bool) error
+	SetMustChangePassword(ctx context.Context, id string, mustChangePassword bool) error
 }
 
 type pgUserRepository struct {
@@ -48,15 +49,16 @@ func (r *pgUserRepository) GetByPhoneOrEmail(ctx context.Context, identifier str
 	}
 
 	u := &domain.User{
-		ID:        UUIDToString(row.ID),
-		SiteID:    UUIDToPtrString(row.SiteID),
-		Phone:     row.Phone,
-		Email:     TextToPtrString(row.Email),
-		FullName:  row.FullName,
-		Role:      domain.UserRole(row.Role),
-		IsActive:  row.IsActive,
-		CreatedAt: row.CreatedAt.Time,
-		UpdatedAt: row.UpdatedAt.Time,
+		ID:                 UUIDToString(row.ID),
+		SiteID:             UUIDToPtrString(row.SiteID),
+		Phone:              row.Phone,
+		Email:              TextToPtrString(row.Email),
+		FullName:           row.FullName,
+		Role:               domain.UserRole(row.Role),
+		IsActive:           row.IsActive,
+		MustChangePassword: row.MustChangePassword,
+		CreatedAt:          row.CreatedAt.Time,
+		UpdatedAt:          row.UpdatedAt.Time,
 	}
 	return u, row.PasswordHash, nil
 }
@@ -71,15 +73,16 @@ func (r *pgUserRepository) GetByPhone(ctx context.Context, phone string) (*domai
 	}
 
 	u := &domain.User{
-		ID:        UUIDToString(row.ID),
-		SiteID:    UUIDToPtrString(row.SiteID),
-		Phone:     row.Phone,
-		Email:     TextToPtrString(row.Email),
-		FullName:  row.FullName,
-		Role:      domain.UserRole(row.Role),
-		IsActive:  row.IsActive,
-		CreatedAt: row.CreatedAt.Time,
-		UpdatedAt: row.UpdatedAt.Time,
+		ID:                 UUIDToString(row.ID),
+		SiteID:             UUIDToPtrString(row.SiteID),
+		Phone:              row.Phone,
+		Email:              TextToPtrString(row.Email),
+		FullName:           row.FullName,
+		Role:               domain.UserRole(row.Role),
+		IsActive:           row.IsActive,
+		MustChangePassword: row.MustChangePassword,
+		CreatedAt:          row.CreatedAt.Time,
+		UpdatedAt:          row.UpdatedAt.Time,
 	}
 	return u, row.PasswordHash, nil
 }
@@ -94,15 +97,16 @@ func (r *pgUserRepository) GetByEmail(ctx context.Context, email string) (*domai
 	}
 
 	u := &domain.User{
-		ID:        UUIDToString(row.ID),
-		SiteID:    UUIDToPtrString(row.SiteID),
-		Phone:     row.Phone,
-		Email:     TextToPtrString(row.Email),
-		FullName:  row.FullName,
-		Role:      domain.UserRole(row.Role),
-		IsActive:  row.IsActive,
-		CreatedAt: row.CreatedAt.Time,
-		UpdatedAt: row.UpdatedAt.Time,
+		ID:                 UUIDToString(row.ID),
+		SiteID:             UUIDToPtrString(row.SiteID),
+		Phone:              row.Phone,
+		Email:              TextToPtrString(row.Email),
+		FullName:           row.FullName,
+		Role:               domain.UserRole(row.Role),
+		IsActive:           row.IsActive,
+		MustChangePassword: row.MustChangePassword,
+		CreatedAt:          row.CreatedAt.Time,
+		UpdatedAt:          row.UpdatedAt.Time,
 	}
 	return u, row.PasswordHash, nil
 }
@@ -117,43 +121,46 @@ func (r *pgUserRepository) GetByID(ctx context.Context, id string) (*domain.User
 	}
 
 	u := &domain.User{
-		ID:        UUIDToString(row.ID),
-		SiteID:    UUIDToPtrString(row.SiteID),
-		Phone:     row.Phone,
-		Email:     TextToPtrString(row.Email),
-		FullName:  row.FullName,
-		Role:      domain.UserRole(row.Role),
-		IsActive:  row.IsActive,
-		CreatedAt: row.CreatedAt.Time,
-		UpdatedAt: row.UpdatedAt.Time,
+		ID:                 UUIDToString(row.ID),
+		SiteID:             UUIDToPtrString(row.SiteID),
+		Phone:              row.Phone,
+		Email:              TextToPtrString(row.Email),
+		FullName:           row.FullName,
+		Role:               domain.UserRole(row.Role),
+		IsActive:           row.IsActive,
+		MustChangePassword: row.MustChangePassword,
+		CreatedAt:          row.CreatedAt.Time,
+		UpdatedAt:          row.UpdatedAt.Time,
 	}
 	return u, nil
 }
 
 func (r *pgUserRepository) Create(ctx context.Context, user *domain.User, passwordHash string) (*domain.User, error) {
 	created, err := r.queries.CreateUser(ctx, db.CreateUserParams{
-		SiteID:       PtrStringToUUID(user.SiteID),
-		Phone:        user.Phone,
-		Email:        PtrStringToText(user.Email),
-		PasswordHash: passwordHash,
-		FullName:     user.FullName,
-		Role:         string(user.Role),
-		IsActive:     user.IsActive,
+		SiteID:             PtrStringToUUID(user.SiteID),
+		Phone:              user.Phone,
+		Email:              PtrStringToText(user.Email),
+		PasswordHash:       passwordHash,
+		FullName:           user.FullName,
+		Role:               string(user.Role),
+		IsActive:           user.IsActive,
+		MustChangePassword: user.MustChangePassword,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &domain.User{
-		ID:        UUIDToString(created.ID),
-		SiteID:    UUIDToPtrString(created.SiteID),
-		Phone:     created.Phone,
-		Email:     TextToPtrString(created.Email),
-		FullName:  created.FullName,
-		Role:      domain.UserRole(created.Role),
-		IsActive:  created.IsActive,
-		CreatedAt: created.CreatedAt.Time,
-		UpdatedAt: created.UpdatedAt.Time,
+		ID:                 UUIDToString(created.ID),
+		SiteID:             UUIDToPtrString(created.SiteID),
+		Phone:              created.Phone,
+		Email:              TextToPtrString(created.Email),
+		FullName:           created.FullName,
+		Role:               domain.UserRole(created.Role),
+		IsActive:           created.IsActive,
+		MustChangePassword: created.MustChangePassword,
+		CreatedAt:          created.CreatedAt.Time,
+		UpdatedAt:          created.UpdatedAt.Time,
 	}, nil
 }
 
@@ -170,15 +177,16 @@ func (r *pgUserRepository) ListAdminsBySiteID(ctx context.Context, siteID string
 	admins := make([]domain.User, 0, len(rows))
 	for _, row := range rows {
 		admins = append(admins, domain.User{
-			ID:        UUIDToString(row.ID),
-			SiteID:    UUIDToPtrString(row.SiteID),
-			Phone:     row.Phone,
-			Email:     TextToPtrString(row.Email),
-			FullName:  row.FullName,
-			Role:      domain.UserRole(row.Role),
-			IsActive:  row.IsActive,
-			CreatedAt: row.CreatedAt.Time,
-			UpdatedAt: row.UpdatedAt.Time,
+			ID:                 UUIDToString(row.ID),
+			SiteID:             UUIDToPtrString(row.SiteID),
+			Phone:              row.Phone,
+			Email:              TextToPtrString(row.Email),
+			FullName:           row.FullName,
+			Role:               domain.UserRole(row.Role),
+			IsActive:           row.IsActive,
+			MustChangePassword: row.MustChangePassword,
+			CreatedAt:          row.CreatedAt.Time,
+			UpdatedAt:          row.UpdatedAt.Time,
 		})
 	}
 	return admins, nil
@@ -196,22 +204,32 @@ func (r *pgUserRepository) UpdateUserDetails(ctx context.Context, id string, ful
 	}
 
 	return &domain.User{
-		ID:        UUIDToString(updated.ID),
-		SiteID:    UUIDToPtrString(updated.SiteID),
-		Phone:     updated.Phone,
-		Email:     TextToPtrString(updated.Email),
-		FullName:  updated.FullName,
-		Role:      domain.UserRole(updated.Role),
-		IsActive:  updated.IsActive,
-		CreatedAt: updated.CreatedAt.Time,
-		UpdatedAt: updated.UpdatedAt.Time,
+		ID:                 UUIDToString(updated.ID),
+		SiteID:             UUIDToPtrString(updated.SiteID),
+		Phone:              updated.Phone,
+		Email:              TextToPtrString(updated.Email),
+		FullName:           updated.FullName,
+		Role:               domain.UserRole(updated.Role),
+		IsActive:           updated.IsActive,
+		MustChangePassword: updated.MustChangePassword,
+		CreatedAt:          updated.CreatedAt.Time,
+		UpdatedAt:          updated.UpdatedAt.Time,
 	}, nil
 }
 
-func (r *pgUserRepository) UpdateUserPassword(ctx context.Context, id string, passwordHash string) error {
+func (r *pgUserRepository) UpdateUserPassword(ctx context.Context, id string, passwordHash string, mustChangePassword bool) error {
 	_, err := r.queries.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
-		ID:           StringToUUID(id),
-		PasswordHash: passwordHash,
+		ID:                 StringToUUID(id),
+		PasswordHash:       passwordHash,
+		MustChangePassword: mustChangePassword,
+	})
+	return err
+}
+
+func (r *pgUserRepository) SetMustChangePassword(ctx context.Context, id string, mustChangePassword bool) error {
+	_, err := r.queries.SetMustChangePassword(ctx, db.SetMustChangePasswordParams{
+		ID:                 StringToUUID(id),
+		MustChangePassword: mustChangePassword,
 	})
 	return err
 }

@@ -237,8 +237,11 @@ func TestApartmentService_UpdateResident(t *testing.T) {
 			updateUserDetailsFn: func(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error) {
 				return existingUser, nil
 			},
-			updateUserPasswordFn: func(ctx context.Context, id string, passwordHash string) error {
+			updateUserPasswordFn: func(ctx context.Context, id string, passwordHash string, mustChangePassword bool) error {
 				pwdUpdated = true
+				if !mustChangePassword {
+					t.Errorf("expected mustChangePassword to be true")
+				}
 				return nil
 			},
 		}

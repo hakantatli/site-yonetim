@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth';
@@ -8,9 +8,11 @@ import { meterApi } from '../../api/meter';
 import { announcementApi } from '../../api/announcement';
 import { residentApi } from '../../api/resident';
 import { formatPeriodMonthYear } from '../../utils/date';
+import { ChangePasswordModal } from '../../components/auth/ChangePasswordModal';
 import {
   Home,
   LogOut,
+  KeyRound,
   Wallet,
   TrendingUp,
   TrendingDown,
@@ -38,6 +40,20 @@ export function ResidentDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'debts' | 'treasury' | 'meters' | 'announcements' | 'overview'>('debts');
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isFirstLoginPrompt, setIsFirstLoginPrompt] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === 'resident' && user?.must_change_password) {
+      setIsFirstLoginPrompt(true);
+      setIsPasswordModalOpen(true);
+    }
+  }, [user?.role, user?.must_change_password]);
+
+  const handleOpenPasswordModal = () => {
+    setIsFirstLoginPrompt(false);
+    setIsPasswordModalOpen(true);
+  };
 
   const { data: myApartments = [] } = useQuery({
     queryKey: ['resident', 'my-apartments'],
@@ -160,6 +176,14 @@ export function ResidentDashboard() {
               <span className="text-xs font-bold text-slate-900">{user?.full_name}</span>
               <span className="text-[11px] text-emerald-600 font-medium">{getRoleLabel(user?.role)}</span>
             </div>
+            <button
+              onClick={handleOpenPasswordModal}
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 py-1.5 px-3 rounded-xl transition-colors cursor-pointer"
+              title="Şifrenizi Değiştirin"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-slate-500" />
+              <span className="hidden sm:inline">Şifre Değiştir</span>
+            </button>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold py-1.5 px-3 rounded-xl border border-rose-100 hover:bg-rose-50 transition-colors cursor-pointer"
@@ -960,6 +984,12 @@ export function ResidentDashboard() {
           </div>
         )}
       </main>
+
+      <ChangePasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        isFirstLogin={isFirstLoginPrompt}
+      />
     </div>
   );
 }
