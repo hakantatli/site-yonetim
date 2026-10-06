@@ -100,6 +100,7 @@ jobs:
           SITE_NAME: ${{ secrets.SITE_NAME }}
           SITE_URL: ${{ secrets.SITE_URL }}
           RUN_MIGRATIONS: ${{ secrets.RUN_MIGRATIONS }}
+          OCI_BACKUP_PAR_URL: ${{ secrets.OCI_BACKUP_PAR_URL }}
         run: |
           echo "Deployment starting on self-hosted runner..."
 
@@ -123,8 +124,14 @@ jobs:
             echo "INITIAL_OWNER_PASSWORD=${INITIAL_OWNER_PASSWORD}" >> .env
             echo "RUN_MIGRATIONS=${RUN_MIGRATIONS:-true}" >> .env
             echo "VITE_API_URL=/api/v1" >> .env
+            if [ -n "$OCI_BACKUP_PAR_URL" ]; then
+              echo "OCI_BACKUP_PAR_URL=${OCI_BACKUP_PAR_URL}" >> .env
+            fi
           else
             echo "Using existing local .env file on server."
+            if [ -n "$OCI_BACKUP_PAR_URL" ] && ! grep -q "^OCI_BACKUP_PAR_URL=" .env; then
+              echo "OCI_BACKUP_PAR_URL=${OCI_BACKUP_PAR_URL}" >> .env
+            fi
           fi
 
           if [ -f docker-compose.prod.yml ]; then
