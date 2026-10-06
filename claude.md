@@ -173,4 +173,16 @@
   - **Yönetici Paneli:** Tüm geçmiş dönemlerin ana sayaç, daire sayaçları, birim maliyet ve ortak alan dökümleri listelenir ve detay modalı ile görüntülenebilir.
   - **Sakin Paneli:** Sakinler kendi dairelerinin ilk/son endeksini, tüketimini, birim fiyatını, bina ana fatura tutarını ve bina ortak alan tüketimini şeffafça inceler.
 
+---
+
+#### 12. Tanıtım ve Demo Hesabı
+
+- **Demo Sitesi:** "Çınar Park Sitesi" (Kadıköy / İstanbul), 10 daire (A Blok No: 1-5, B Blok No: 6-10), ₺24.500,00 devir/açılış bakiyesi.
+- **Yönetici Girişi:** Telefon: `0555 123 45 67`, Şifre: `Demo1234!`
+- **Sakin Girişi (A Blok No: 2 Kiracısı):** İsim: Can Arslan, Telefon: `0542 301 00 01`, Şifre: `Demo1234!`
+- **Aidat & Borç Geçmişi:** Temmuz, Ağustos, Eylül ve Ekim 2026 aylarına ait aidat tahakkukları; tam ödenmiş, kısmi ödenmiş ve açık borç senaryolarıyla eksiksiz işlenmiştir. Yönetici dairesi (Daire 1) aidattan muaf (`is_due_exempt`) tutulmuştur.
+- **Elektrik Faturası Dağıtımı:** Eylül 2026 BEDAŞ elektrik faturası (3.000 kWh / ₺9.000,00); 10 dairenin süzme sayaç okumaları, daire tüketimleri (2.500 kWh / ₺7.500,00) ve bina ortak alan payı (500 kWh / ₺1.500,00) kuruşu kuruşuna denk şekilde sisteme işlenmiştir.
+- **Seed Komutu:** `backend/cmd/seed/main.go` üzerinden `go run ./cmd/seed` (veya Docker içinde) çalıştırılarak demo verileri her an sıfırlanıp yeniden yüklenebilir. Giriş ekranında tek tıkla demo doldurma kısayolları yer alır.
+
+
 

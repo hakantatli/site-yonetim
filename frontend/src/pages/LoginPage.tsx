@@ -83,6 +83,16 @@ export function LoginPage() {
     setPassword('AdminPassword123!');
   };
 
+  const fillDemoAdmin = () => {
+    setLoginIdentifier(formatPhone('05551234567'));
+    setPassword('Demo1234!');
+  };
+
+  const fillDemoResident = () => {
+    setLoginIdentifier(formatPhone('05423010001'));
+    setPassword('Demo1234!');
+  };
+
   return (
     <div className="min-h-screen bg-linear-to-b from-slate-100 to-slate-200 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -165,18 +175,53 @@ export function LoginPage() {
             </div>
           </form>
 
+          {/* Demo Account Quick-Fill Card */}
+          <div className="mt-6 pt-6 border-t border-slate-100">
+            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 text-xs">
+              <span className="font-semibold text-slate-800 block mb-1">
+                Sistemi İncelemek İçin Demo Girişi
+              </span>
+              <p className="text-slate-500 mb-3">
+                10 daireli örnek sitede aidat geçmişi, kasa hareketleri ve sayaç dağıtımı hazır durumdadır.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={fillDemoAdmin}
+                  className="px-2.5 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-100 hover:text-blue-600 transition-colors text-center cursor-pointer"
+                >
+                  <span className="block font-semibold">Demo Yönetici</span>
+                  <span className="text-[11px] text-slate-500 font-mono">0555 123 45 67</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={fillDemoResident}
+                  className="px-2.5 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-100 hover:text-blue-600 transition-colors text-center cursor-pointer"
+                >
+                  <span className="block font-semibold">Demo Sakin</span>
+                  <span className="text-[11px] text-slate-500 font-mono">0542 301 00 01</span>
+                </button>
+              </div>
+              <div className="mt-2 text-center text-[11px] text-slate-500">
+                Ortak Demo Şifresi: <code className="font-mono font-semibold text-slate-700">Demo1234!</code>
+              </div>
+            </div>
+          </div>
+
           {/* Dev Quick-Fill helper (Only in local development) */}
           {import.meta.env.DEV && (
-            <div className="mt-6 pt-6 border-t border-slate-100">
-              <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 text-xs">
-                <span className="font-semibold text-slate-700 block mb-1">Geliştirici Girişi (Seeded Owner):</span>
-                <p className="text-slate-500 mb-2 font-mono">{formatPhone('05000000000')} / AdminPassword123!</p>
+            <div className="mt-3">
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs flex items-center justify-between">
+                <div>
+                  <span className="font-semibold text-slate-700">Sistem Sahibi (Owner): </span>
+                  <span className="text-slate-500 font-mono">{formatPhone('05000000000')}</span>
+                </div>
                 <button
                   type="button"
                   onClick={fillDefaultOwner}
                   className="text-xs font-medium text-blue-600 hover:text-blue-700 underline cursor-pointer"
                 >
-                  Bilgileri Doldur
+                  Doldur
                 </button>
               </div>
             </div>
