@@ -129,9 +129,13 @@ jobs:
             fi
           else
             echo "Using existing local .env file on server."
-            if [ -n "$OCI_BACKUP_PAR_URL" ] && ! grep -q "^OCI_BACKUP_PAR_URL=" .env; then
-              echo "OCI_BACKUP_PAR_URL=${OCI_BACKUP_PAR_URL}" >> .env
-            fi
+          fi
+
+          # Always ensure OCI_BACKUP_PAR_URL from GitHub Secret is injected and up-to-date in .env
+          if [ -n "$OCI_BACKUP_PAR_URL" ]; then
+            grep -v "^OCI_BACKUP_PAR_URL=" .env > .env.tmp 2>/dev/null && mv .env.tmp .env || true
+            echo "OCI_BACKUP_PAR_URL=${OCI_BACKUP_PAR_URL}" >> .env
+            echo "Configured OCI_BACKUP_PAR_URL from GitHub secret."
           fi
 
           if [ -f docker-compose.prod.yml ]; then
