@@ -67,8 +67,6 @@ services:
       INITIAL_OWNER_PHONE: ${INITIAL_OWNER_PHONE:-05000000000}
       INITIAL_OWNER_EMAIL: ${INITIAL_OWNER_EMAIL:-admin@siteyonetim.local}
       INITIAL_OWNER_PASSWORD: ${INITIAL_OWNER_PASSWORD:-AdminPassword123!}
-    ports:
-      - "8080:8080"
     volumes:
       - ./backend:/app
     depends_on:
