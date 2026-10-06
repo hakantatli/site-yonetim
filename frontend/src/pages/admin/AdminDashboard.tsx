@@ -948,111 +948,201 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        {/* Tab & Action Navigation */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 bg-slate-200/70 p-1 rounded-xl overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('apartments')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer shrink-0 ${
-                activeTab === 'apartments'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+        {/* Tab Navigation (Full-width, flex-wrap, no horizontal scroll) */}
+        <div className="bg-slate-200/60 p-1.5 rounded-2xl flex flex-wrap items-center gap-1.5 shadow-2xs">
+          {/* Yerleşim Grubu */}
+          <button
+            onClick={() => setActiveTab('apartments')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+              activeTab === 'apartments'
+                ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200/70'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Home className="w-3.5 h-3.5 shrink-0" />
+            <span>Daireler</span>
+            <span
+              className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                activeTab === 'apartments' ? 'bg-blue-100 text-blue-800' : 'bg-slate-300/70 text-slate-700'
               }`}
             >
-              <Home className="w-4 h-4" />
-              <span>Daireler ({apartments.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('blocks')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer shrink-0 ${
-                activeTab === 'blocks'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              {apartments.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('blocks')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+              activeTab === 'blocks'
+                ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200/70'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 shrink-0" />
+            <span>Bloklar</span>
+            <span
+              className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                activeTab === 'blocks' ? 'bg-blue-100 text-blue-800' : 'bg-slate-300/70 text-slate-700'
               }`}
             >
-              <Layers className="w-4 h-4" />
-              <span>Bloklar ({blocks.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('dues')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer shrink-0 ${
-                activeTab === 'dues'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              {blocks.length}
+            </span>
+          </button>
+
+          <div className="hidden lg:block w-px h-5 bg-slate-300/80 mx-1 shrink-0" />
+
+          {/* Muhasebe & Kasa Grubu */}
+          <button
+            onClick={() => setActiveTab('dues')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+              activeTab === 'dues'
+                ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200/70'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Receipt className="w-3.5 h-3.5 shrink-0" />
+            <span>Aidat Ayarları</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('debts')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+              activeTab === 'debts'
+                ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200/70'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <BadgeDollarSign className="w-3.5 h-3.5 shrink-0" />
+            <span>Borçlar</span>
+            <span
+              className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                activeTab === 'debts' ? 'bg-blue-100 text-blue-800' : 'bg-slate-300/70 text-slate-700'
               }`}
             >
-              <Receipt className="w-4 h-4" />
-              <span>Aidat Ayarları</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('debts')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer shrink-0 ${
-                activeTab === 'debts'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              {debtData?.stats?.total_count || 0}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('payments')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+              activeTab === 'payments'
+                ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200/70'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5 shrink-0" />
+            <span>Tahsilatlar</span>
+            <span
+              className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                activeTab === 'payments' ? 'bg-blue-100 text-blue-800' : 'bg-slate-300/70 text-slate-700'
               }`}
             >
-              <BadgeDollarSign className="w-4 h-4" />
-              <span>Borçlar ({debtData?.stats?.total_count || 0})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('payments')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer shrink-0 ${
-                activeTab === 'payments'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              {paymentStats?.total_count || 0}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('expenses')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+              activeTab === 'expenses'
+                ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200/70'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <TrendingDown className="w-3.5 h-3.5 shrink-0" />
+            <span>Masraflar</span>
+            <span
+              className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                activeTab === 'expenses' ? 'bg-blue-100 text-blue-800' : 'bg-slate-300/70 text-slate-700'
               }`}
             >
-              <CreditCard className="w-4 h-4" />
-              <span>Tahsilatlar ({paymentStats?.total_count || 0})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('expenses')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer shrink-0 ${
-                activeTab === 'expenses'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              {expenseData?.stats?.total_count || 0}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('treasury')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+              activeTab === 'treasury'
+                ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200/70'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Wallet className="w-3.5 h-3.5 shrink-0" />
+            <span>Şeffaf Kasa</span>
+          </button>
+
+          <div className="hidden lg:block w-px h-5 bg-slate-300/80 mx-1 shrink-0" />
+
+          {/* Site İşlemleri Grubu */}
+          <button
+            onClick={() => setActiveTab('meters')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+              activeTab === 'meters'
+                ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200/70'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Gauge className="w-3.5 h-3.5 shrink-0" />
+            <span>Sayaç & Tüketim</span>
+            <span
+              className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                activeTab === 'meters' ? 'bg-blue-100 text-blue-800' : 'bg-slate-300/70 text-slate-700'
               }`}
             >
-              <TrendingDown className="w-4 h-4" />
-              <span>Masraflar ({expenseData?.stats?.total_count || 0})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('treasury')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer shrink-0 ${
-                activeTab === 'treasury'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+              {consumptionPeriods.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('announcements')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+              activeTab === 'announcements'
+                ? 'bg-white text-blue-700 shadow-xs ring-1 ring-slate-200/70'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Megaphone className="w-3.5 h-3.5 shrink-0" />
+            <span>Duyurular</span>
+            <span
+              className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                activeTab === 'announcements' ? 'bg-blue-100 text-blue-800' : 'bg-slate-300/70 text-slate-700'
               }`}
             >
-              <Wallet className="w-4 h-4" />
-              <span>Şeffaf Kasa</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('meters')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer shrink-0 ${
-                activeTab === 'meters'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Gauge className="w-4 h-4" />
-              <span>Sayaç & Tüketim ({consumptionPeriods.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('announcements')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer shrink-0 ${
-                activeTab === 'announcements'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Megaphone className="w-4 h-4 text-indigo-600" />
-              <span>Duyurular ({announcements.length})</span>
-            </button>
+              {announcements.length}
+            </span>
+          </button>
+        </div>
+
+        {/* Tab Context & Action Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">
+              {activeTab === 'apartments' && 'Daire ve Sakin Yönetimi'}
+              {activeTab === 'blocks' && 'Blok Tanımları'}
+              {activeTab === 'dues' && 'Aidat Ayarları & Geçerlilik'}
+              {activeTab === 'debts' && 'Borç ve Tahakkuk Takibi'}
+              {activeTab === 'payments' && 'Tahsilat ve Ödeme Hareketleri'}
+              {activeTab === 'expenses' && 'Site Giderleri ve Masraflar'}
+              {activeTab === 'treasury' && 'Şeffaf Kasa & Mali Durum'}
+              {activeTab === 'meters' && 'Sayaç Okuma & Tüketim Dağıtımı'}
+              {activeTab === 'announcements' && 'Site Sakinleri Duyuru Panosu'}
+            </h2>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {activeTab === 'apartments' && `Toplam ${apartments.length} daire kayıtlı (${occupiedTenants + occupiedOwners} dolu, ${emptyCount} boş)`}
+              {activeTab === 'blocks' && `Sitede tanımlı ${blocks.length} blok bulunmaktadır`}
+              {activeTab === 'dues' && 'Geçerli aidat tutarı ve geçmiş aidat tarifesi listesi'}
+              {activeTab === 'debts' && `Toplam ${debtData?.stats?.total_count || 0} borç kaydı listeleniyor`}
+              {activeTab === 'payments' && `Toplam ${paymentStats?.total_count || 0} tahsilat kaydı işlendi`}
+              {activeTab === 'expenses' && `Toplam ${expenseData?.stats?.total_count || 0} masraf harcaması kaydedildi`}
+              {activeTab === 'treasury' && 'Devir bakiyesi, aylık gelir-gider dengesi ve net kasa durumu'}
+              {activeTab === 'meters' && `Toplam ${consumptionPeriods.length} faturalandırma dönemi kaydedildi`}
+              {activeTab === 'announcements' && `Toplam ${announcements.length} aktif duyuru yayında`}
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center flex-wrap gap-2.5">
             {activeTab === 'announcements' && (
               <button
                 onClick={() => {
@@ -1217,7 +1307,7 @@ export function AdminDashboard() {
             )}
 
             {activeTab === 'apartments' && (
-              <>
+              <div className="flex items-center gap-2">
                 <div className="relative">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -1230,12 +1320,12 @@ export function AdminDashboard() {
                 </div>
                 <button
                   onClick={() => setIsAptModalOpen(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all cursor-pointer shrink-0"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Yeni Daire Ekle</span>
                 </button>
-              </>
+              </div>
             )}
 
             {activeTab === 'blocks' && (
