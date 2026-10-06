@@ -12,8 +12,9 @@ RUN go mod download
 
 COPY . .
 
-# Build statically linked binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/server ./cmd/server
+# Build statically linked binaries
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/server ./cmd/server && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/seed ./cmd/seed
 
 # ── Stage 2: Minimal runtime image ──
 FROM alpine:3.20
@@ -25,6 +26,7 @@ ENV TZ=Europe/Istanbul
 
 # Copy binaries
 COPY --from=builder /app/server /app/server
+COPY --from=builder /app/seed /app/seed
 COPY --from=builder /go/bin/goose /usr/local/bin/goose
 
 # Copy migrations and entrypoint

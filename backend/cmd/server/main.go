@@ -22,6 +22,7 @@ import (
 	"github.com/hakantatli/site-yonetim/internal/middleware"
 	"github.com/hakantatli/site-yonetim/internal/repository"
 	"github.com/hakantatli/site-yonetim/internal/scheduler"
+	"github.com/hakantatli/site-yonetim/internal/seed"
 	"github.com/hakantatli/site-yonetim/internal/service"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -140,6 +141,13 @@ func main() {
 		slog.Warn("could not seed owner user", "error", err)
 	} else {
 		slog.Info("owner seed verified")
+	}
+
+	// Ensure demo site and demo accounts exist
+	if err := seed.EnsureDemoData(ctx, dbPool); err != nil {
+		slog.Warn("could not ensure demo seed", "error", err)
+	} else {
+		slog.Info("demo seed verified")
 	}
 
 	// Handlers
