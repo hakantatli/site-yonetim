@@ -184,5 +184,16 @@
 - **Elektrik Faturası Dağıtımı:** Eylül 2026 BEDAŞ elektrik faturası (3.000 kWh / ₺9.000,00); 10 dairenin süzme sayaç okumaları, daire tüketimleri (2.500 kWh / ₺7.500,00) ve bina ortak alan payı (500 kWh / ₺1.500,00) kuruşu kuruşuna denk şekilde sisteme işlenmiştir.
 - **Seed Komutu:** `backend/cmd/seed/main.go` üzerinden `go run ./cmd/seed` (veya Docker içinde) çalıştırılarak demo verileri her an sıfırlanıp yeniden yüklenebilir. Giriş ekranında tek tıkla demo doldurma kısayolları yer alır.
 
+---
+
+#### 13. Düzenli ve Pre-Deployment Veritabanı Yedekleme (PostgreSQL Backup)
+
+- **Düzenli Cron Yedekleme:** `docker/backup` servisi Alpine tabanlı `postgresql16-client` imajıyla çalışır. Her gece `01:00`'de (`CRON_TIME: "0 1 * * *"`, `TZ=Europe/Istanbul`) `pg_dump` aracılığıyla veritabanını `--clean --if-exists --no-owner --no-privileges` parametreleriyle gzip sıkıştırmalı (`.sql.gz`) olarak `./backup` dizinine kaydeder.
+- **Rotasyon (Retention):** Sadece en güncel 15 yerel yedek saklanır (`MAX_BACKUPS=15`), eski dosyalar otomatik silinir.
+- **Bulut Yedekleme (OCI Object Storage):** Eğer `OCI_BACKUP_PAR_URL` ortam değişkeni tanımlıysa, alınan her yedek eşzamanlı olarak Oracle Cloud Object Storage Standard Bucket'a yüklenir.
+- **Pre-Deployment DB Backup:** CI/CD pipeline'ında veya sunucuda yeni sürüm devreye alınmadan önce çalışan `postgres` / `backup` konteyneri üzerinden otomatik anlık veritabanı yedeği alınır; olası migration veya veri bozulmalarında sıfır veri kaybı güvencesi sağlanır.
+- **Geri Yükleme:** `docker compose -f docker-compose.prod.yml exec backup /restore.sh /backup/<dosya_adi>.sql.gz` komutuyla tek adımda geri yüklenebilir.
+
+
 
 

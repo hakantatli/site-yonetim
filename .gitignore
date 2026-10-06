@@ -27,3 +27,8 @@ frontend/dist/
 
 # OS
 .DS_Store
+
+# Backups
+/backup/
+*.sql.gz
+

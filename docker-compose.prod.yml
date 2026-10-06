@@ -90,6 +90,42 @@ services:
       - "traefik.http.routers.${SITE_NAME:-binaportal}-frontend-secure.priority=10"
       - "traefik.http.services.${SITE_NAME:-binaportal}-frontend.loadbalancer.server.port=80"
 
+  # ─────────────────────────────────────────────
+  # PostgreSQL Automated Cron Backup & Restore
+  # Manual backup:  docker compose -f docker-compose.prod.yml exec backup /backup.sh
+  # Manual restore: docker compose -f docker-compose.prod.yml exec backup /restore.sh /backup/YYYYMMDDHHMM.binaportal.sql.gz
+  # ─────────────────────────────────────────────
+  backup:
+    build:
+      context: ./docker/backup
+      dockerfile: Dockerfile
+    container_name: ${SITE_NAME:-binaportal}-prod-backup
+    restart: always
+    mem_limit: 64m
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backup:/backup
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-binaportal}
+      POSTGRES_USER: ${POSTGRES_USER:-binaportal_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MAX_BACKUPS: 15
+      INIT_BACKUP: 0
+      CRON_TIME: "0 1 * * *"
+      TZ: Europe/Istanbul
+      OCI_BACKUP_PAR_URL: ${OCI_BACKUP_PAR_URL:-}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      - default
+
 volumes:
   postgres_prod_data:
 
