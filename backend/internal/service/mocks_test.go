@@ -527,6 +527,7 @@ type mockExpenseRepository struct {
 	listExpensesFn             func(ctx context.Context, siteID string, filter domain.ExpenseFilter) ([]domain.Expense, error)
 	getExpenseByIDFn           func(ctx context.Context, id string, siteID string) (*domain.Expense, error)
 	deleteExpenseFn            func(ctx context.Context, id string, siteID string) error
+	getExpenseInvoiceFn        func(ctx context.Context, expenseID string) (*domain.ExpenseInvoice, error)
 	getExpenseStatsFn          func(ctx context.Context, siteID string) (*domain.ExpenseStats, error)
 	getCategoryBreakdownFn     func(ctx context.Context, siteID string) ([]domain.CategoryBreakdownItem, error)
 	getTreasurySummaryFn      func(ctx context.Context, siteID string) (*domain.TreasurySummary, error)
@@ -601,6 +602,13 @@ func (m *mockExpenseRepository) DeleteExpense(ctx context.Context, id string, si
 		return m.deleteExpenseFn(ctx, id, siteID)
 	}
 	return nil
+}
+
+func (m *mockExpenseRepository) GetExpenseInvoice(ctx context.Context, expenseID string) (*domain.ExpenseInvoice, error) {
+	if m.getExpenseInvoiceFn != nil {
+		return m.getExpenseInvoiceFn(ctx, expenseID)
+	}
+	return nil, repository.ErrInvoiceNotFound
 }
 
 func (m *mockExpenseRepository) GetExpenseStats(ctx context.Context, siteID string) (*domain.ExpenseStats, error) {

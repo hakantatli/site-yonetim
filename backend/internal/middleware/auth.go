@@ -19,19 +19,26 @@ const (
 func AuthMiddleware(authService service.AuthService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tokenStr := ""
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
+			if authHeader != "" {
+				parts := strings.SplitN(authHeader, " ", 2)
+				if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+					tokenStr = parts[1]
+				} else {
+					http.Error(w, `{"error":"authorization header format must be Bearer {token}"}`, http.StatusUnauthorized)
+					return
+				}
+			} else {
+				tokenStr = r.URL.Query().Get("token")
+			}
+
+			if tokenStr == "" {
 				http.Error(w, `{"error":"authorization header required"}`, http.StatusUnauthorized)
 				return
 			}
 
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-				http.Error(w, `{"error":"authorization header format must be Bearer {token}"}`, http.StatusUnauthorized)
-				return
-			}
-
-			claims, err := authService.ValidateToken(parts[1])
+			claims, err := authService.ValidateToken(tokenStr)
 			if err != nil {
 				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
 				return

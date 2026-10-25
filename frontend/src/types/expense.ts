@@ -27,6 +27,10 @@ export interface Expense {
   receipt_note?: string | null;
   recorded_by: string;
   recorded_by_name: string;
+  invoice_id?: string | null;
+  invoice_file_name?: string | null;
+  invoice_file_size?: number | null;
+  invoice_file_type?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +41,7 @@ export interface CreateExpensePayload {
   expense_date?: string;
   description?: string;
   receipt_note?: string;
+  invoice?: File | null;
 }
 
 export interface ExpenseFilter {

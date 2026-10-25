@@ -3,13 +3,17 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hakantatli/site-yonetim/internal/domain"
 	"github.com/hakantatli/site-yonetim/internal/middleware"
+	"github.com/hakantatli/site-yonetim/internal/repository"
 	"github.com/hakantatli/site-yonetim/internal/service"
 )
 
@@ -93,6 +97,7 @@ func (h *AdminHandler) Routes() chi.Router {
 	// Expenses
 	r.Get("/expenses", h.ListExpenses)
 	r.Post("/expenses", h.CreateExpense)
+	r.Get("/expenses/{id}/invoice", h.GetExpenseInvoice)
 	r.Delete("/expenses/{id}", h.DeleteExpense)
 
 	// Treasury
@@ -981,9 +986,48 @@ func (h *AdminHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req domain.CreateExpenseRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz istek gövdesi"})
-		return
+	contentType := r.Header.Get("Content-Type")
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// Limit to 3MB total body size to safely accommodate max 2MB file + form fields
+		r.Body = http.MaxBytesReader(w, r.Body, 3*1024*1024)
+		if err := r.ParseMultipartForm(3 * 1024 * 1024); err != nil {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "dosya boyutu en fazla 2 MB olabilir veya form geçersiz"})
+			return
+		}
+
+		req.CategoryID = strings.TrimSpace(r.FormValue("category_id"))
+		if amountStr := r.FormValue("amount"); amountStr != "" {
+			req.Amount, _ = strconv.ParseFloat(amountStr, 64)
+		}
+		req.ExpenseDate = strings.TrimSpace(r.FormValue("expense_date"))
+		if desc := strings.TrimSpace(r.FormValue("description")); desc != "" {
+			req.Description = &desc
+		}
+		if note := strings.TrimSpace(r.FormValue("receipt_note")); note != "" {
+			req.ReceiptNote = &note
+		}
+
+		file, fileHeader, err := r.FormFile("invoice")
+		if err == nil && file != nil {
+			defer file.Close()
+			if fileHeader.Size > service.MaxInvoiceFileSize {
+				respondJSON(w, http.StatusBadRequest, map[string]string{"error": service.ErrInvoiceFileTooLarge.Error()})
+				return
+			}
+			fileBytes, err := io.ReadAll(file)
+			if err != nil {
+				respondJSON(w, http.StatusBadRequest, map[string]string{"error": "dosya okunamadı"})
+				return
+			}
+			req.InvoiceFileName = &fileHeader.Filename
+			req.InvoiceFileData = fileBytes
+		}
+	} else {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz istek gövdesi"})
+			return
+		}
 	}
 
 	expense, err := h.expenseService.CreateExpense(r.Context(), siteID, req, claims.UserID)
@@ -993,6 +1037,31 @@ func (h *AdminHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusCreated, expense)
+}
+
+func (h *AdminHandler) GetExpenseInvoice(w http.ResponseWriter, r *http.Request) {
+	siteID, err := h.getSiteID(r)
+	if err != nil {
+		respondJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		return
+	}
+
+	expenseID := chi.URLParam(r, "id")
+	invoice, err := h.expenseService.GetExpenseInvoice(r.Context(), expenseID, siteID)
+	if err != nil {
+		if errors.Is(err, service.ErrInvoiceNotFound) || errors.Is(err, repository.ErrInvoiceNotFound) || errors.Is(err, repository.ErrExpenseNotFound) {
+			respondJSON(w, http.StatusNotFound, map[string]string{"error": "fatura belgesi bulunamadı"})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", invoice.FileType)
+	w.Header().Set("Content-Length", strconv.Itoa(invoice.FileSize))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", invoice.FileName))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(invoice.FileData)
 }
 
 func (h *AdminHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {

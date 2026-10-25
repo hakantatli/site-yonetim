@@ -21,26 +21,43 @@ type UpdateCategoryRequest struct {
 }
 
 type Expense struct {
-	ID             string    `json:"id"`
-	SiteID         string    `json:"site_id"`
-	CategoryID     string    `json:"category_id"`
-	CategoryName   string    `json:"category_name"`
-	Amount         float64   `json:"amount"`
-	Description    *string   `json:"description,omitempty"`
-	ExpenseDate    string    `json:"expense_date"`
-	ReceiptNote    *string   `json:"receipt_note,omitempty"`
-	RecordedBy     string    `json:"recorded_by"`
-	RecordedByName string    `json:"recorded_by_name"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID              string    `json:"id"`
+	SiteID          string    `json:"site_id"`
+	CategoryID      string    `json:"category_id"`
+	CategoryName    string    `json:"category_name"`
+	Amount          float64   `json:"amount"`
+	Description     *string   `json:"description,omitempty"`
+	ExpenseDate     string    `json:"expense_date"`
+	ReceiptNote     *string   `json:"receipt_note,omitempty"`
+	RecordedBy      string    `json:"recorded_by"`
+	RecordedByName  string    `json:"recorded_by_name"`
+	InvoiceID       *string   `json:"invoice_id,omitempty"`
+	InvoiceFileName *string   `json:"invoice_file_name,omitempty"`
+	InvoiceFileSize *int      `json:"invoice_file_size,omitempty"`
+	InvoiceFileType *string   `json:"invoice_file_type,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type ExpenseInvoice struct {
+	ID        string    `json:"id"`
+	ExpenseID string    `json:"expense_id"`
+	FileName  string    `json:"file_name"`
+	FileType  string    `json:"file_type"`
+	FileSize  int       `json:"file_size"`
+	FileData  []byte    `json:"-"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type CreateExpenseRequest struct {
-	CategoryID  string  `json:"category_id"`
-	Amount      float64 `json:"amount"`
-	Description *string `json:"description,omitempty"`
-	ExpenseDate string  `json:"expense_date"`
-	ReceiptNote *string `json:"receipt_note,omitempty"`
+	CategoryID      string  `json:"category_id"`
+	Amount          float64 `json:"amount"`
+	Description     *string `json:"description,omitempty"`
+	ExpenseDate     string  `json:"expense_date"`
+	ReceiptNote     *string `json:"receipt_note,omitempty"`
+	InvoiceFileName *string `json:"invoice_file_name,omitempty"`
+	InvoiceFileType *string `json:"invoice_file_type,omitempty"`
+	InvoiceFileData []byte  `json:"-"`
 }
 
 type ExpenseFilter struct {

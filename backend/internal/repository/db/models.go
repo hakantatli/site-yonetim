@@ -111,6 +111,16 @@ type ExpenseCategories struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type ExpenseInvoices struct {
+	ID        pgtype.UUID        `json:"id"`
+	ExpenseID pgtype.UUID        `json:"expense_id"`
+	FileName  string             `json:"file_name"`
+	FileType  string             `json:"file_type"`
+	FileSize  int32              `json:"file_size"`
+	FileData  []byte             `json:"file_data"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Expenses struct {
 	ID          pgtype.UUID        `json:"id"`
 	SiteID      pgtype.UUID        `json:"site_id"`

@@ -68,8 +68,36 @@ export const expenseApi = {
   createExpense: async (payload: CreateExpensePayload, siteId?: string): Promise<Expense> => {
     const base = getBaseUrl(siteId);
     const queryString = siteId ? `?siteId=${siteId}` : '';
+
+    if (payload.invoice) {
+      const formData = new FormData();
+      formData.append('category_id', payload.category_id);
+      formData.append('amount', payload.amount.toString());
+      if (payload.expense_date) formData.append('expense_date', payload.expense_date);
+      if (payload.description) formData.append('description', payload.description);
+      if (payload.receipt_note) formData.append('receipt_note', payload.receipt_note);
+      formData.append('invoice', payload.invoice);
+
+      const { data } = await apiClient.post<Expense>(`${base}/expenses${queryString}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return data;
+    }
+
     const { data } = await apiClient.post<Expense>(`${base}/expenses${queryString}`, payload);
     return data;
+  },
+
+  getInvoiceUrl: (expenseId: string, siteId?: string): string => {
+    const base = getBaseUrl(siteId);
+    const token = localStorage.getItem('access_token');
+    const params = new URLSearchParams();
+    if (token) params.append('token', token);
+    if (siteId) params.append('siteId', siteId);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    return `/api/v1${base}/expenses/${expenseId}/invoice${queryString}`;
   },
 
   deleteExpense: async (id: string, siteId?: string): Promise<{ message: string }> => {

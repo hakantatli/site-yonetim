@@ -128,3 +128,11 @@ func PtrStringToDate(s *string) pgtype.Date {
 	return StringToDate(*s)
 }
 
+func Int4ToPtrInt(i pgtype.Int4) *int {
+	if !i.Valid {
+		return nil
+	}
+	val := int(i.Int32)
+	return &val
+}
+

@@ -62,6 +62,56 @@ func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (E
 	return i, err
 }
 
+const createExpenseInvoice = `-- name: CreateExpenseInvoice :one
+INSERT INTO expense_invoices (
+    expense_id,
+    file_name,
+    file_type,
+    file_size,
+    file_data
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, expense_id, file_name, file_type, file_size, created_at
+`
+
+type CreateExpenseInvoiceParams struct {
+	ExpenseID pgtype.UUID `json:"expense_id"`
+	FileName  string      `json:"file_name"`
+	FileType  string      `json:"file_type"`
+	FileSize  int32       `json:"file_size"`
+	FileData  []byte      `json:"file_data"`
+}
+
+type CreateExpenseInvoiceRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	ExpenseID pgtype.UUID        `json:"expense_id"`
+	FileName  string             `json:"file_name"`
+	FileType  string             `json:"file_type"`
+	FileSize  int32              `json:"file_size"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CreateExpenseInvoice(ctx context.Context, arg CreateExpenseInvoiceParams) (CreateExpenseInvoiceRow, error) {
+	row := q.db.QueryRow(ctx, createExpenseInvoice,
+		arg.ExpenseID,
+		arg.FileName,
+		arg.FileType,
+		arg.FileSize,
+		arg.FileData,
+	)
+	var i CreateExpenseInvoiceRow
+	err := row.Scan(
+		&i.ID,
+		&i.ExpenseID,
+		&i.FileName,
+		&i.FileType,
+		&i.FileSize,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteExpenseByID = `-- name: DeleteExpenseByID :exec
 DELETE FROM expenses
 WHERE id = $1 AND site_id = $2
@@ -74,6 +124,16 @@ type DeleteExpenseByIDParams struct {
 
 func (q *Queries) DeleteExpenseByID(ctx context.Context, arg DeleteExpenseByIDParams) error {
 	_, err := q.db.Exec(ctx, deleteExpenseByID, arg.ID, arg.SiteID)
+	return err
+}
+
+const deleteExpenseInvoiceByExpenseID = `-- name: DeleteExpenseInvoiceByExpenseID :exec
+DELETE FROM expense_invoices
+WHERE expense_id = $1
+`
+
+func (q *Queries) DeleteExpenseInvoiceByExpenseID(ctx context.Context, expenseID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteExpenseInvoiceByExpenseID, expenseID)
 	return err
 }
 
@@ -136,10 +196,15 @@ SELECT
     e.recorded_by,
     u.full_name AS recorded_by_name,
     e.created_at,
-    e.updated_at
+    e.updated_at,
+    ei.id AS invoice_id,
+    ei.file_name AS invoice_file_name,
+    ei.file_size AS invoice_file_size,
+    ei.file_type AS invoice_file_type
 FROM expenses e
 JOIN expense_categories c ON c.id = e.category_id
 JOIN users u ON u.id = e.recorded_by
+LEFT JOIN expense_invoices ei ON ei.expense_id = e.id
 WHERE e.id = $1 AND e.site_id = $2
 LIMIT 1
 `
@@ -150,18 +215,22 @@ type GetExpenseByIDParams struct {
 }
 
 type GetExpenseByIDRow struct {
-	ID             pgtype.UUID        `json:"id"`
-	SiteID         pgtype.UUID        `json:"site_id"`
-	CategoryID     pgtype.UUID        `json:"category_id"`
-	CategoryName   string             `json:"category_name"`
-	Amount         pgtype.Numeric     `json:"amount"`
-	Description    pgtype.Text        `json:"description"`
-	ExpenseDate    pgtype.Date        `json:"expense_date"`
-	ReceiptNote    pgtype.Text        `json:"receipt_note"`
-	RecordedBy     pgtype.UUID        `json:"recorded_by"`
-	RecordedByName string             `json:"recorded_by_name"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID              pgtype.UUID        `json:"id"`
+	SiteID          pgtype.UUID        `json:"site_id"`
+	CategoryID      pgtype.UUID        `json:"category_id"`
+	CategoryName    string             `json:"category_name"`
+	Amount          pgtype.Numeric     `json:"amount"`
+	Description     pgtype.Text        `json:"description"`
+	ExpenseDate     pgtype.Date        `json:"expense_date"`
+	ReceiptNote     pgtype.Text        `json:"receipt_note"`
+	RecordedBy      pgtype.UUID        `json:"recorded_by"`
+	RecordedByName  string             `json:"recorded_by_name"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	InvoiceID       pgtype.UUID        `json:"invoice_id"`
+	InvoiceFileName pgtype.Text        `json:"invoice_file_name"`
+	InvoiceFileSize pgtype.Int4        `json:"invoice_file_size"`
+	InvoiceFileType pgtype.Text        `json:"invoice_file_type"`
 }
 
 func (q *Queries) GetExpenseByID(ctx context.Context, arg GetExpenseByIDParams) (GetExpenseByIDRow, error) {
@@ -180,6 +249,39 @@ func (q *Queries) GetExpenseByID(ctx context.Context, arg GetExpenseByIDParams) 
 		&i.RecordedByName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InvoiceID,
+		&i.InvoiceFileName,
+		&i.InvoiceFileSize,
+		&i.InvoiceFileType,
+	)
+	return i, err
+}
+
+const getExpenseInvoiceByExpenseID = `-- name: GetExpenseInvoiceByExpenseID :one
+SELECT
+    id,
+    expense_id,
+    file_name,
+    file_type,
+    file_size,
+    file_data,
+    created_at
+FROM expense_invoices
+WHERE expense_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetExpenseInvoiceByExpenseID(ctx context.Context, expenseID pgtype.UUID) (ExpenseInvoices, error) {
+	row := q.db.QueryRow(ctx, getExpenseInvoiceByExpenseID, expenseID)
+	var i ExpenseInvoices
+	err := row.Scan(
+		&i.ID,
+		&i.ExpenseID,
+		&i.FileName,
+		&i.FileType,
+		&i.FileSize,
+		&i.FileData,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -219,10 +321,15 @@ SELECT
     e.recorded_by,
     u.full_name AS recorded_by_name,
     e.created_at,
-    e.updated_at
+    e.updated_at,
+    ei.id AS invoice_id,
+    ei.file_name AS invoice_file_name,
+    ei.file_size AS invoice_file_size,
+    ei.file_type AS invoice_file_type
 FROM expenses e
 JOIN expense_categories c ON c.id = e.category_id
 JOIN users u ON u.id = e.recorded_by
+LEFT JOIN expense_invoices ei ON ei.expense_id = e.id
 WHERE e.site_id = $1
   AND ($2::UUID IS NULL OR e.category_id = $2)
   AND ($3::DATE IS NULL OR e.expense_date >= $3)
@@ -238,18 +345,22 @@ type ListExpensesBySiteParams struct {
 }
 
 type ListExpensesBySiteRow struct {
-	ID             pgtype.UUID        `json:"id"`
-	SiteID         pgtype.UUID        `json:"site_id"`
-	CategoryID     pgtype.UUID        `json:"category_id"`
-	CategoryName   string             `json:"category_name"`
-	Amount         pgtype.Numeric     `json:"amount"`
-	Description    pgtype.Text        `json:"description"`
-	ExpenseDate    pgtype.Date        `json:"expense_date"`
-	ReceiptNote    pgtype.Text        `json:"receipt_note"`
-	RecordedBy     pgtype.UUID        `json:"recorded_by"`
-	RecordedByName string             `json:"recorded_by_name"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID              pgtype.UUID        `json:"id"`
+	SiteID          pgtype.UUID        `json:"site_id"`
+	CategoryID      pgtype.UUID        `json:"category_id"`
+	CategoryName    string             `json:"category_name"`
+	Amount          pgtype.Numeric     `json:"amount"`
+	Description     pgtype.Text        `json:"description"`
+	ExpenseDate     pgtype.Date        `json:"expense_date"`
+	ReceiptNote     pgtype.Text        `json:"receipt_note"`
+	RecordedBy      pgtype.UUID        `json:"recorded_by"`
+	RecordedByName  string             `json:"recorded_by_name"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	InvoiceID       pgtype.UUID        `json:"invoice_id"`
+	InvoiceFileName pgtype.Text        `json:"invoice_file_name"`
+	InvoiceFileSize pgtype.Int4        `json:"invoice_file_size"`
+	InvoiceFileType pgtype.Text        `json:"invoice_file_type"`
 }
 
 func (q *Queries) ListExpensesBySite(ctx context.Context, arg ListExpensesBySiteParams) ([]ListExpensesBySiteRow, error) {
@@ -279,6 +390,10 @@ func (q *Queries) ListExpensesBySite(ctx context.Context, arg ListExpensesBySite
 			&i.RecordedByName,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InvoiceID,
+			&i.InvoiceFileName,
+			&i.InvoiceFileSize,
+			&i.InvoiceFileType,
 		); err != nil {
 			return nil, err
 		}

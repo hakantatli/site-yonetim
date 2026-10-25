@@ -13,6 +13,7 @@ import (
 var (
 	ErrCategoryNotFound = errors.New("kategori bulunamadı")
 	ErrExpenseNotFound  = errors.New("masraf kaydı bulunamadı")
+	ErrInvoiceNotFound  = errors.New("fatura belgesi bulunamadı")
 )
 
 type ExpenseRepository interface {
@@ -29,6 +30,7 @@ type ExpenseRepository interface {
 	ListExpenses(ctx context.Context, siteID string, filter domain.ExpenseFilter) ([]domain.Expense, error)
 	GetExpenseByID(ctx context.Context, id string, siteID string) (*domain.Expense, error)
 	DeleteExpense(ctx context.Context, id string, siteID string) error
+	GetExpenseInvoice(ctx context.Context, expenseID string) (*domain.ExpenseInvoice, error)
 	GetExpenseStats(ctx context.Context, siteID string) (*domain.ExpenseStats, error)
 	GetCategoryBreakdown(ctx context.Context, siteID string) ([]domain.CategoryBreakdownItem, error)
 	GetTreasurySummary(ctx context.Context, siteID string) (*domain.TreasurySummary, error)
@@ -168,7 +170,15 @@ func (r *pgExpenseRepository) DeleteCategory(ctx context.Context, id string, sit
 // Expense methods
 
 func (r *pgExpenseRepository) CreateExpense(ctx context.Context, siteID string, req domain.CreateExpenseRequest, recordedBy string) (*domain.Expense, error) {
-	created, err := r.queries.CreateExpense(ctx, db.CreateExpenseParams{
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := r.queries.WithTx(tx)
+
+	created, err := qtx.CreateExpense(ctx, db.CreateExpenseParams{
 		SiteID:      StringToUUID(siteID),
 		CategoryID:  StringToUUID(req.CategoryID),
 		Amount:      Float64ToNumeric(req.Amount),
@@ -178,6 +188,23 @@ func (r *pgExpenseRepository) CreateExpense(ctx context.Context, siteID string, 
 		RecordedBy:  StringToUUID(recordedBy),
 	})
 	if err != nil {
+		return nil, err
+	}
+
+	if len(req.InvoiceFileData) > 0 && req.InvoiceFileName != nil && req.InvoiceFileType != nil {
+		_, err = qtx.CreateExpenseInvoice(ctx, db.CreateExpenseInvoiceParams{
+			ExpenseID: created.ID,
+			FileName:  *req.InvoiceFileName,
+			FileType:  *req.InvoiceFileType,
+			FileSize:  int32(len(req.InvoiceFileData)),
+			FileData:  req.InvoiceFileData,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 
@@ -198,18 +225,22 @@ func (r *pgExpenseRepository) ListExpenses(ctx context.Context, siteID string, f
 	items := make([]domain.Expense, len(rows))
 	for i, row := range rows {
 		items[i] = domain.Expense{
-			ID:             UUIDToString(row.ID),
-			SiteID:         UUIDToString(row.SiteID),
-			CategoryID:     UUIDToString(row.CategoryID),
-			CategoryName:   row.CategoryName,
-			Amount:         NumericToFloat64(row.Amount),
-			Description:    TextToPtrString(row.Description),
-			ExpenseDate:    DateToString(row.ExpenseDate),
-			ReceiptNote:    TextToPtrString(row.ReceiptNote),
-			RecordedBy:     UUIDToString(row.RecordedBy),
-			RecordedByName: row.RecordedByName,
-			CreatedAt:      row.CreatedAt.Time,
-			UpdatedAt:      row.UpdatedAt.Time,
+			ID:              UUIDToString(row.ID),
+			SiteID:          UUIDToString(row.SiteID),
+			CategoryID:      UUIDToString(row.CategoryID),
+			CategoryName:    row.CategoryName,
+			Amount:          NumericToFloat64(row.Amount),
+			Description:     TextToPtrString(row.Description),
+			ExpenseDate:     DateToString(row.ExpenseDate),
+			ReceiptNote:     TextToPtrString(row.ReceiptNote),
+			RecordedBy:      UUIDToString(row.RecordedBy),
+			RecordedByName:  row.RecordedByName,
+			InvoiceID:       UUIDToPtrString(row.InvoiceID),
+			InvoiceFileName: TextToPtrString(row.InvoiceFileName),
+			InvoiceFileSize: Int4ToPtrInt(row.InvoiceFileSize),
+			InvoiceFileType: TextToPtrString(row.InvoiceFileType),
+			CreatedAt:       row.CreatedAt.Time,
+			UpdatedAt:       row.UpdatedAt.Time,
 		}
 	}
 	return items, nil
@@ -228,18 +259,42 @@ func (r *pgExpenseRepository) GetExpenseByID(ctx context.Context, id string, sit
 	}
 
 	return &domain.Expense{
-		ID:             UUIDToString(row.ID),
-		SiteID:         UUIDToString(row.SiteID),
-		CategoryID:     UUIDToString(row.CategoryID),
-		CategoryName:   row.CategoryName,
-		Amount:         NumericToFloat64(row.Amount),
-		Description:    TextToPtrString(row.Description),
-		ExpenseDate:    DateToString(row.ExpenseDate),
-		ReceiptNote:    TextToPtrString(row.ReceiptNote),
-		RecordedBy:     UUIDToString(row.RecordedBy),
-		RecordedByName: row.RecordedByName,
-		CreatedAt:      row.CreatedAt.Time,
-		UpdatedAt:      row.UpdatedAt.Time,
+		ID:              UUIDToString(row.ID),
+		SiteID:          UUIDToString(row.SiteID),
+		CategoryID:      UUIDToString(row.CategoryID),
+		CategoryName:    row.CategoryName,
+		Amount:          NumericToFloat64(row.Amount),
+		Description:     TextToPtrString(row.Description),
+		ExpenseDate:     DateToString(row.ExpenseDate),
+		ReceiptNote:     TextToPtrString(row.ReceiptNote),
+		RecordedBy:      UUIDToString(row.RecordedBy),
+		RecordedByName:  row.RecordedByName,
+		InvoiceID:       UUIDToPtrString(row.InvoiceID),
+		InvoiceFileName: TextToPtrString(row.InvoiceFileName),
+		InvoiceFileSize: Int4ToPtrInt(row.InvoiceFileSize),
+		InvoiceFileType: TextToPtrString(row.InvoiceFileType),
+		CreatedAt:       row.CreatedAt.Time,
+		UpdatedAt:       row.UpdatedAt.Time,
+	}, nil
+}
+
+func (r *pgExpenseRepository) GetExpenseInvoice(ctx context.Context, expenseID string) (*domain.ExpenseInvoice, error) {
+	row, err := r.queries.GetExpenseInvoiceByExpenseID(ctx, StringToUUID(expenseID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrInvoiceNotFound
+		}
+		return nil, err
+	}
+
+	return &domain.ExpenseInvoice{
+		ID:        UUIDToString(row.ID),
+		ExpenseID: UUIDToString(row.ExpenseID),
+		FileName:  row.FileName,
+		FileType:  row.FileType,
+		FileSize:  int(row.FileSize),
+		FileData:  row.FileData,
+		CreatedAt: row.CreatedAt.Time,
 	}, nil
 }
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../api/admin';
@@ -64,6 +64,8 @@ import {
   Megaphone,
   Info,
   AlertCircle,
+  Paperclip,
+  ExternalLink,
 } from 'lucide-react';
 
 export function AdminDashboard() {
@@ -404,6 +406,8 @@ export function AdminDashboard() {
     description: '',
     receipt_note: '',
   });
+  const [expenseInvoiceFile, setExpenseInvoiceFile] = useState<File | null>(null);
+  const expenseFileInputRef = useRef<HTMLInputElement>(null);
   const [expenseError, setExpenseError] = useState<string | null>(null);
 
   // Category Management Modal State
@@ -649,6 +653,10 @@ export function AdminDashboard() {
         description: '',
         receipt_note: '',
       });
+      setExpenseInvoiceFile(null);
+      if (expenseFileInputRef.current) {
+        expenseFileInputRef.current.value = '';
+      }
       setExpenseError(null);
       toast.success('Masraf kaydı başarıyla eklendi.');
     },
@@ -2548,6 +2556,7 @@ export function AdminDashboard() {
                         <th className="px-4 py-3">Kategori</th>
                         <th className="px-4 py-3">Açıklama</th>
                         <th className="px-4 py-3">Fiş / Makbuz No</th>
+                        <th className="px-4 py-3 text-center">Fatura Belgesi</th>
                         <th className="px-4 py-3">Tutar</th>
                         <th className="px-4 py-3">Kaydeden</th>
                         <th className="px-4 py-3 text-right">İşlemler</th>
@@ -2576,6 +2585,23 @@ export function AdminDashboard() {
                               <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">
                                 {exp.receipt_note}
                               </span>
+                            ) : (
+                              <span className="text-slate-300">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                            {exp.invoice_id ? (
+                              <a
+                                href={expenseApi.getInvoiceUrl(exp.id, siteIdQuery)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60 font-semibold text-xs transition-colors cursor-pointer"
+                                title={exp.invoice_file_name || 'Faturayı Görüntüle'}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>{exp.invoice_file_name?.toLowerCase().endsWith('.pdf') ? 'PDF Fatura' : 'JPEG Fatura'}</span>
+                                <ExternalLink className="w-3 h-3 opacity-60" />
+                              </a>
                             ) : (
                               <span className="text-slate-300">-</span>
                             )}
@@ -4607,7 +4633,11 @@ export function AdminDashboard() {
                 <h3 className="font-bold text-slate-900 text-sm">Yeni Masraf / Gider Kaydı Ekle</h3>
               </div>
               <button
-                onClick={() => setIsExpenseModalOpen(false)}
+                onClick={() => {
+                  setIsExpenseModalOpen(false);
+                  setExpenseInvoiceFile(null);
+                  if (expenseFileInputRef.current) expenseFileInputRef.current.value = '';
+                }}
                 className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -4632,7 +4662,10 @@ export function AdminDashboard() {
                   setExpenseError('Masraf tutarı 0\'dan büyük olmalıdır');
                   return;
                 }
-                createExpenseMutation.mutate(expenseForm);
+                createExpenseMutation.mutate({
+                  ...expenseForm,
+                  invoice: expenseInvoiceFile,
+                });
               }}
               className="space-y-4 text-xs"
             >
@@ -4706,10 +4739,93 @@ export function AdminDashboard() {
                 />
               </div>
 
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Fatura / Fiş Belgesi (PDF veya JPEG, Maks. 2MB)
+                </label>
+                <div className="mt-1">
+                  {!expenseInvoiceFile ? (
+                    <label className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-xl cursor-pointer bg-slate-50/50 hover:bg-blue-50/30 transition-colors">
+                      <div className="flex items-center gap-2 text-slate-600 font-medium">
+                        <Paperclip className="w-4 h-4 text-slate-400" />
+                        <span>Fatura dosyası seçin (PDF, JPG, JPEG)</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 mt-0.5">En fazla 2 MB</span>
+                      <input
+                        ref={expenseFileInputRef}
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,image/jpeg,application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+
+                          // Max 2MB = 2 * 1024 * 1024 bytes
+                          if (file.size > 2 * 1024 * 1024) {
+                            setExpenseError('Fatura dosyası 2 MB\'dan büyük olamaz.');
+                            e.target.value = '';
+                            return;
+                          }
+
+                          const ext = file.name.split('.').pop()?.toLowerCase();
+                          const isAllowed =
+                            file.type === 'application/pdf' ||
+                            file.type === 'image/jpeg' ||
+                            ext === 'pdf' ||
+                            ext === 'jpg' ||
+                            ext === 'jpeg';
+
+                          if (!isAllowed) {
+                            setExpenseError('Yalnızca PDF veya JPEG formatında dosya yükleyebilirsiniz.');
+                            e.target.value = '';
+                            return;
+                          }
+
+                          setExpenseError(null);
+                          setExpenseInvoiceFile(file);
+                        }}
+                      />
+                    </label>
+                  ) : (
+                    <div className="flex items-center justify-between p-3 bg-blue-50/60 border border-blue-200/80 rounded-xl">
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        <div className="p-2 rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div className="truncate">
+                          <p className="font-semibold text-slate-900 truncate">{expenseInvoiceFile.name}</p>
+                          <p className="text-[11px] text-slate-500">
+                            {(expenseInvoiceFile.size / 1024).toFixed(1)} KB &bull;{' '}
+                            {expenseInvoiceFile.name.toLowerCase().endsWith('.pdf') ? 'PDF Belgesi' : 'JPEG Görsel'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpenseInvoiceFile(null);
+                          if (expenseFileInputRef.current) {
+                            expenseFileInputRef.current.value = '';
+                          }
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                        title="Dosyayı Kaldır"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setIsExpenseModalOpen(false)}
+                  onClick={() => {
+                    setIsExpenseModalOpen(false);
+                    setExpenseInvoiceFile(null);
+                    if (expenseFileInputRef.current) expenseFileInputRef.current.value = '';
+                  }}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold cursor-pointer"
                 >
                   Vazgeç

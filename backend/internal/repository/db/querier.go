@@ -23,6 +23,7 @@ type Querier interface {
 	CreateDebt(ctx context.Context, arg CreateDebtParams) (Debts, error)
 	CreateExpense(ctx context.Context, arg CreateExpenseParams) (Expenses, error)
 	CreateExpenseCategory(ctx context.Context, arg CreateExpenseCategoryParams) (ExpenseCategories, error)
+	CreateExpenseInvoice(ctx context.Context, arg CreateExpenseInvoiceParams) (CreateExpenseInvoiceRow, error)
 	CreateMeterReading(ctx context.Context, arg CreateMeterReadingParams) (MeterReadings, error)
 	CreateMeterType(ctx context.Context, arg CreateMeterTypeParams) (MeterTypes, error)
 	CreatePayment(ctx context.Context, arg CreatePaymentParams) (Payments, error)
@@ -36,6 +37,7 @@ type Querier interface {
 	DeleteDebtByID(ctx context.Context, arg DeleteDebtByIDParams) error
 	DeleteExpenseByID(ctx context.Context, arg DeleteExpenseByIDParams) error
 	DeleteExpenseCategory(ctx context.Context, arg DeleteExpenseCategoryParams) error
+	DeleteExpenseInvoiceByExpenseID(ctx context.Context, expenseID pgtype.UUID) error
 	DeleteMeterType(ctx context.Context, arg DeleteMeterTypeParams) error
 	DeleteOpenDebtsByDebtor(ctx context.Context, arg DeleteOpenDebtsByDebtorParams) error
 	DeletePaymentByID(ctx context.Context, arg DeletePaymentByIDParams) error
@@ -51,6 +53,7 @@ type Querier interface {
 	GetDueRateHistory(ctx context.Context, siteID pgtype.UUID) ([]GetDueRateHistoryRow, error)
 	GetExpenseByID(ctx context.Context, arg GetExpenseByIDParams) (GetExpenseByIDRow, error)
 	GetExpenseCategoryByID(ctx context.Context, arg GetExpenseCategoryByIDParams) (ExpenseCategories, error)
+	GetExpenseInvoiceByExpenseID(ctx context.Context, expenseID pgtype.UUID) (ExpenseInvoices, error)
 	GetExpenseStatsBySite(ctx context.Context, siteID pgtype.UUID) (GetExpenseStatsBySiteRow, error)
 	GetLastApartmentReadings(ctx context.Context, arg GetLastApartmentReadingsParams) ([]GetLastApartmentReadingsRow, error)
 	GetLastMainMeterReading(ctx context.Context, arg GetLastMainMeterReadingParams) (pgtype.Numeric, error)

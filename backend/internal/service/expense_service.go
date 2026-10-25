@@ -1,8 +1,11 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -10,12 +13,17 @@ import (
 	"github.com/hakantatli/site-yonetim/internal/repository"
 )
 
+const MaxInvoiceFileSize = 2 * 1024 * 1024 // 2MB
+
 var (
 	ErrInvalidCategoryName        = errors.New("kategori adı zorunludur")
 	ErrCategoryHasExpenses         = errors.New("bu kategoriye bağlı masraf kayıtları bulunduğu için silinemez, pasife alındı")
 	ErrInvalidExpenseAmount        = errors.New("masraf tutarı sıfırdan büyük olmalıdır")
 	ErrInvalidExpenseDate          = errors.New("geçerli bir harcama tarihi girilmelidir (YYYY-AA-GG)")
 	ErrCategoryInactiveOrNotFound = errors.New("seçilen masraf kategorisi bulunamadı veya pasif durumda")
+	ErrInvoiceFileTooLarge         = errors.New("fatura dosyası en fazla 2 MB olabilir")
+	ErrInvalidInvoiceFileType     = errors.New("yalnızca PDF veya JPEG formatında fatura dosyası yüklenebilir")
+	ErrInvoiceNotFound            = errors.New("fatura belgesi bulunamadı")
 )
 
 type ExpenseService interface {
@@ -30,6 +38,7 @@ type ExpenseService interface {
 	ListExpenses(ctx context.Context, siteID string, filter domain.ExpenseFilter) ([]domain.Expense, *domain.ExpenseStats, error)
 	GetExpenseByID(ctx context.Context, id string, siteID string) (*domain.Expense, error)
 	DeleteExpense(ctx context.Context, id string, siteID string) error
+	GetExpenseInvoice(ctx context.Context, id string, siteID string) (*domain.ExpenseInvoice, error)
 
 	// Treasury
 	GetTreasurySummary(ctx context.Context, siteID string) (*domain.TreasurySummary, error)
@@ -142,9 +151,52 @@ func (s *expenseService) CreateExpense(ctx context.Context, siteID string, req d
 		}
 	}
 
-	// TODO: Rapor hook noktası — PDF ekstre ileride buradan üretilebilir
+	if len(req.InvoiceFileData) > 0 {
+		normalizedType, err := validateInvoiceFile(req.InvoiceFileName, req.InvoiceFileData)
+		if err != nil {
+			return nil, err
+		}
+		req.InvoiceFileType = &normalizedType
+		if req.InvoiceFileName == nil || strings.TrimSpace(*req.InvoiceFileName) == "" {
+			defaultName := "fatura.pdf"
+			if normalizedType == "image/jpeg" {
+				defaultName = "fatura.jpg"
+			}
+			req.InvoiceFileName = &defaultName
+		} else {
+			trimmedName := strings.TrimSpace(*req.InvoiceFileName)
+			req.InvoiceFileName = &trimmedName
+		}
+	}
 
 	return s.expenseRepo.CreateExpense(ctx, siteID, req, recordedBy)
+}
+
+func validateInvoiceFile(fileName *string, data []byte) (string, error) {
+	if len(data) > MaxInvoiceFileSize {
+		return "", ErrInvoiceFileTooLarge
+	}
+	if len(data) == 0 {
+		return "", errors.New("boş dosya yüklenemez")
+	}
+
+	detected := http.DetectContentType(data)
+	var ext string
+	if fileName != nil {
+		ext = strings.ToLower(filepath.Ext(*fileName))
+	}
+
+	isPDF := detected == "application/pdf" || (ext == ".pdf" && bytes.HasPrefix(data, []byte("%PDF-")))
+	isJPEG := detected == "image/jpeg" || ((ext == ".jpg" || ext == ".jpeg") && len(data) >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+
+	if !isPDF && !isJPEG {
+		return "", ErrInvalidInvoiceFileType
+	}
+
+	if isPDF {
+		return "application/pdf", nil
+	}
+	return "image/jpeg", nil
 }
 
 func (s *expenseService) ListExpenses(ctx context.Context, siteID string, filter domain.ExpenseFilter) ([]domain.Expense, *domain.ExpenseStats, error) {
@@ -167,6 +219,13 @@ func (s *expenseService) GetExpenseByID(ctx context.Context, id string, siteID s
 
 func (s *expenseService) DeleteExpense(ctx context.Context, id string, siteID string) error {
 	return s.expenseRepo.DeleteExpense(ctx, id, siteID)
+}
+
+func (s *expenseService) GetExpenseInvoice(ctx context.Context, id string, siteID string) (*domain.ExpenseInvoice, error) {
+	if _, err := s.expenseRepo.GetExpenseByID(ctx, id, siteID); err != nil {
+		return nil, err
+	}
+	return s.expenseRepo.GetExpenseInvoice(ctx, id)
 }
 
 func (s *expenseService) GetTreasurySummary(ctx context.Context, siteID string) (*domain.TreasurySummary, error) {
