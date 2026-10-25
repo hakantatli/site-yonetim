@@ -86,6 +86,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          clean: false
 
       - name: Deploy with Docker Compose
         env:

@@ -31,6 +31,9 @@ pg_dump \
   --no-privileges \
   | gzip -9 > "${BACKUP_FILE}"
 
+chmod 666 "${BACKUP_FILE}" 2>/dev/null || true
+chmod 777 /backup 2>/dev/null || true
+
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Local backup completed: ${BACKUP_FILE} ($(du -h "${BACKUP_FILE}" | cut -f1))"
 
 # Upload to OCI Object Storage via Pre-Authenticated Request (PAR) if configured
