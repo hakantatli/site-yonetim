@@ -170,7 +170,7 @@
   - Dairelerin yuvarlanmış toplam tutarı ile ortak alan bedelinin toplamı her zaman ana fatura tutarına kuruşu kuruşuna eşit olur (`Daireler Toplamı + Ortak Alan Tutarı = Fatura Tutarı`).
   - Yuvarlama farkları doğrudan site yönetiminin karşıladığı ortak alan bedeline yansıtılır (`Ortak Alan Tutarı = Fatura Tutarı - Daireler Toplamı`).
 - **Şeffaf Görüntüleme:**
-  - **Yönetici Paneli:** Tüm geçmiş dönemlerin ana sayaç, daire sayaçları, birim maliyet ve ortak alan dökümleri listelenir ve detay modalı ile görüntülenebilir.
+  - **Yönetici Paneli:** Tüm geçmiş dönemlerin ana sayaç, daire sayaçları, birim maliyet ve ortak alan dökümleri listelenir ve detay modalı ile görüntülenebilir. Detay tablosunda Daire, Muhatap, İlk/Son Endeks, Tüketim, Ücret ve varsa önceki dönemden devreden ödenmemiş fatura borcuyla toplanmış Toplam Borç yer alır (Ortak alan site yönetimi gideri olduğundan daire tablosundan kaldırılmış, üst özet kartında sunulmaktadır).
   - **Sakin Paneli:** Sakinler kendi dairelerinin ilk/son endeksini, tüketimini, birim fiyatını, bina ana fatura tutarını ve bina ortak alan tüketimini şeffafça inceler.
 
 ---

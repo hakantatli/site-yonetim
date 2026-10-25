@@ -535,18 +535,43 @@ func (q *Queries) ListConsumptionPeriodsBySite(ctx context.Context, siteID pgtyp
 }
 
 const listMeterReadingsByPeriodID = `-- name: ListMeterReadingsByPeriodID :many
+WITH period_info AS (
+    SELECT id, site_id, meter_type_id, period, created_at
+    FROM consumption_periods
+    WHERE id = $1
+),
+prev_debts AS (
+    SELECT
+        ds.apartment_id,
+        COALESCE(SUM(ds.remaining), 0)::NUMERIC(10, 2) AS previous_debt
+    FROM debt_summary ds
+    JOIN period_info pi ON ds.site_id = pi.site_id
+    JOIN meter_types mt ON mt.id = pi.meter_type_id
+    WHERE ds.type = 'utility'
+      AND ds.status != 'paid'
+      AND (ds.description ILIKE '%' || mt.name || '%' OR ds.description IS NULL)
+      AND (
+          ds.id NOT IN (SELECT debt_id FROM meter_readings WHERE consumption_period_id = $1 AND debt_id IS NOT NULL)
+      )
+      AND (
+          ds.due_month < pi.period OR (ds.due_month IS NULL AND ds.created_at < pi.created_at)
+      )
+    GROUP BY ds.apartment_id
+)
 SELECT
     mr.id, mr.consumption_period_id, mr.apartment_id, mr.previous_reading, mr.current_reading, mr.consumption, mr.individual_amount, mr.common_area_amount, mr.total_amount, mr.debt_id, mr.debtor_user_id, mr.reading_date, mr.notes, mr.created_at,
     a.door_number,
     b.name AS block_name,
     u.full_name AS debtor_full_name,
     u.phone AS debtor_phone,
-    d.status AS debt_status
+    d.status AS debt_status,
+    COALESCE(pd.previous_debt, 0)::NUMERIC(10, 2) AS previous_debt
 FROM meter_readings mr
 JOIN apartments a ON mr.apartment_id = a.id
 LEFT JOIN blocks b ON a.block_id = b.id
 LEFT JOIN users u ON mr.debtor_user_id = u.id
 LEFT JOIN debts d ON mr.debt_id = d.id
+LEFT JOIN prev_debts pd ON pd.apartment_id = mr.apartment_id
 WHERE mr.consumption_period_id = $1
 ORDER BY b.name NULLS FIRST, NULLIF(regexp_replace(a.door_number, '\D', '', 'g'), '')::INT ASC NULLS LAST, a.door_number ASC
 `
@@ -571,6 +596,7 @@ type ListMeterReadingsByPeriodIDRow struct {
 	DebtorFullName      pgtype.Text        `json:"debtor_full_name"`
 	DebtorPhone         pgtype.Text        `json:"debtor_phone"`
 	DebtStatus          pgtype.Text        `json:"debt_status"`
+	PreviousDebt        pgtype.Numeric     `json:"previous_debt"`
 }
 
 func (q *Queries) ListMeterReadingsByPeriodID(ctx context.Context, consumptionPeriodID pgtype.UUID) ([]ListMeterReadingsByPeriodIDRow, error) {
@@ -602,6 +628,7 @@ func (q *Queries) ListMeterReadingsByPeriodID(ctx context.Context, consumptionPe
 			&i.DebtorFullName,
 			&i.DebtorPhone,
 			&i.DebtStatus,
+			&i.PreviousDebt,
 		); err != nil {
 			return nil, err
 		}

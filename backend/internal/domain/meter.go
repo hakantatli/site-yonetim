@@ -72,6 +72,7 @@ type MeterReading struct {
 	IndividualAmount    float64   `json:"individual_amount"`
 	CommonAreaAmount    float64   `json:"common_area_amount"`
 	TotalAmount         float64   `json:"total_amount"`
+	PreviousDebt        float64   `json:"previous_debt"`
 	DebtID              *string   `json:"debt_id,omitempty"`
 	DebtStatus          *string   `json:"debt_status,omitempty"`
 	ReadingDate         string    `json:"reading_date"`

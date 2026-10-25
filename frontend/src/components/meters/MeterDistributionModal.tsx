@@ -485,7 +485,7 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
                       <th className="py-2.5 px-3 w-28">İlk Endeks ({unit})</th>
                       <th className="py-2.5 px-3 w-32">Son Endeks ({unit})</th>
                       <th className="py-2.5 px-3 text-right">Tüketim</th>
-                      <th className="py-2.5 px-3 text-right">Bireysel Pay</th>
+                      <th className="py-2.5 px-3 text-right">Ücret</th>
                       <th className="py-2.5 px-3 text-right">Önceki Borç</th>
                       <th className="py-2.5 px-3 text-right">Toplam Borç</th>
                     </tr>

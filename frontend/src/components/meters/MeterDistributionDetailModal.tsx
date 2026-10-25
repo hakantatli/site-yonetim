@@ -131,58 +131,66 @@ export function MeterDistributionDetailModal({
                     <th className="py-2.5 px-3 text-right">İlk Endeks</th>
                     <th className="py-2.5 px-3 text-right">Son Endeks</th>
                     <th className="py-2.5 px-3 text-right">Tüketim</th>
-                    <th className="py-2.5 px-3 text-right">Bireysel</th>
-                    <th className="py-2.5 px-3 text-right">Ortak Alan</th>
-                    <th className="py-2.5 px-3 text-right">Tahakkuk Eden</th>
+                    <th className="py-2.5 px-3 text-right">Ücret</th>
+                    <th className="py-2.5 px-3 text-right">Toplam Borç</th>
                     <th className="py-2.5 px-3 text-center">Durum</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {readings.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-2 px-3 font-bold text-slate-900">
-                        {r.block_name ? `${r.block_name} ` : ''}No: {r.door_number}
-                      </td>
-                      <td className="py-2 px-3 text-slate-600 truncate max-w-[140px]">
-                        {r.debtor_full_name || '-'}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-500">
-                        {r.previous_reading}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-700 font-semibold">
-                        {r.current_reading}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
-                        {r.consumption} {period.meter_type_unit}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-600">
-                        ₺{r.individual_amount.toLocaleString('tr-TR', { minimumFractionDigits: r.individual_amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-500">
-                        ₺{r.common_area_amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-indigo-700 whitespace-nowrap">
-                        ₺{r.total_amount.toLocaleString('tr-TR', { minimumFractionDigits: r.total_amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        {r.debt_status === 'paid' ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Ödendi
-                          </span>
-                        ) : r.debt_status === 'partial' ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                            <Clock className="w-3 h-3" />
-                            Kısmi
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                            Açık
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {readings.map((r) => {
+                    const previousDebt = r.previous_debt || 0;
+                    const totalDebt = r.individual_amount + previousDebt;
+
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-2 px-3 font-bold text-slate-900">
+                          {r.block_name ? `${r.block_name} ` : ''}No: {r.door_number}
+                        </td>
+                        <td className="py-2 px-3 text-slate-600 truncate max-w-[140px]">
+                          {r.debtor_full_name || '-'}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-slate-500">
+                          {r.previous_reading}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-slate-700 font-semibold">
+                          {r.current_reading}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
+                          {r.consumption} {period.meter_type_unit}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-medium text-slate-700 whitespace-nowrap">
+                          ₺{r.individual_amount.toLocaleString('tr-TR', { minimumFractionDigits: r.individual_amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-indigo-700 whitespace-nowrap">
+                          <div>
+                            ₺{totalDebt.toLocaleString('tr-TR', { minimumFractionDigits: totalDebt % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
+                          </div>
+                          {previousDebt > 0 && (
+                            <div className="text-[10px] text-amber-600 font-normal">
+                              (+₺{previousDebt.toLocaleString('tr-TR', { minimumFractionDigits: previousDebt % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })} önceki)
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {r.debt_status === 'paid' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Ödendi
+                            </span>
+                          ) : r.debt_status === 'partial' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                              <Clock className="w-3 h-3" />
+                              Kısmi
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                              Açık
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

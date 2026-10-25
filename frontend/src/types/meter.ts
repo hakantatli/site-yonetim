@@ -57,6 +57,7 @@ export interface MeterReading {
   individual_amount: number;
   common_area_amount: number;
   total_amount: number;
+  previous_debt?: number;
   debt_id?: string | null;
   debt_status?: string | null;
   reading_date: string;
@@ -105,6 +106,7 @@ export interface ResidentMeterHistoryItem {
   individual_amount: number;
   common_area_amount: number;
   total_amount: number;
+  previous_debt?: number;
   debt_id?: string | null;
   debt_status?: string | null;
   period: string;

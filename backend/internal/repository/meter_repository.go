@@ -350,6 +350,7 @@ func (r *meterRepository) GetConsumptionPeriod(ctx context.Context, id, siteID s
 			IndividualAmount:    NumericToFloat64(row.IndividualAmount),
 			CommonAreaAmount:    NumericToFloat64(row.CommonAreaAmount),
 			TotalAmount:         NumericToFloat64(row.TotalAmount),
+			PreviousDebt:        NumericToFloat64(row.PreviousDebt),
 			DebtID:              UUIDToPtrString(row.DebtID),
 			DebtStatus:          debtStatus,
 			ReadingDate:         DateToString(row.ReadingDate),
