@@ -17,10 +17,13 @@ var (
 type SiteRepository interface {
 	Create(ctx context.Context, name string, address *string, limit int32) (*domain.Site, error)
 	List(ctx context.Context) ([]domain.Site, error)
+	ListByAdminID(ctx context.Context, userID string) ([]domain.Site, error)
 	GetByID(ctx context.Context, id string) (*domain.Site, error)
 	GetDetails(ctx context.Context, id string) (*domain.SiteDetail, error)
 	UpdateLimit(ctx context.Context, id string, limit int32) (*domain.Site, error)
 	CreateDefaultCategories(ctx context.Context, siteID string) error
+	AddAdmin(ctx context.Context, siteID string, userID string) error
+	IsUserAdminOfSite(ctx context.Context, siteID string, userID string) (bool, error)
 }
 
 type pgSiteRepository struct {
@@ -167,4 +170,40 @@ func (r *pgSiteRepository) CreateDefaultCategories(ctx context.Context, siteID s
 		}
 	}
 	return nil
+}
+
+func (r *pgSiteRepository) AddAdmin(ctx context.Context, siteID string, userID string) error {
+	return r.queries.AddSiteAdmin(ctx, db.AddSiteAdminParams{
+		SiteID: StringToUUID(siteID),
+		UserID: StringToUUID(userID),
+	})
+}
+
+func (r *pgSiteRepository) ListByAdminID(ctx context.Context, userID string) ([]domain.Site, error) {
+	rows, err := r.queries.ListSitesByAdminID(ctx, StringToUUID(userID))
+	if err != nil {
+		return nil, err
+	}
+
+	sites := make([]domain.Site, 0, len(rows))
+	for _, row := range rows {
+		sites = append(sites, domain.Site{
+			ID:             UUIDToString(row.ID),
+			Name:           row.Name,
+			Address:        TextToPtrString(row.Address),
+			ApartmentLimit: row.ApartmentLimit,
+			CreatedAt:      row.CreatedAt.Time,
+			UpdatedAt:      row.UpdatedAt.Time,
+			ApartmentCount: row.ApartmentCount,
+			AdminCount:     row.AdminCount,
+		})
+	}
+	return sites, nil
+}
+
+func (r *pgSiteRepository) IsUserAdminOfSite(ctx context.Context, siteID string, userID string) (bool, error) {
+	return r.queries.IsUserAdminOfSite(ctx, db.IsUserAdminOfSiteParams{
+		SiteID: StringToUUID(siteID),
+		UserID: StringToUUID(userID),
+	})
 }

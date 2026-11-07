@@ -43,10 +43,11 @@ SELECT COUNT(*) FROM users
 WHERE role = $1;
 
 -- name: ListAdminsBySiteID :many
-SELECT id, site_id, email, full_name, phone, role, is_active, must_change_password, created_at, updated_at
-FROM users
-WHERE site_id = $1 AND role = 'admin'
-ORDER BY created_at DESC;
+SELECT DISTINCT u.id, u.site_id, u.email, u.full_name, u.phone, u.role, u.is_active, u.must_change_password, u.created_at, u.updated_at
+FROM users u
+LEFT JOIN site_admins sa ON sa.user_id = u.id
+WHERE (u.site_id = $1 OR sa.site_id = $1) AND u.role = 'admin'
+ORDER BY u.created_at DESC;
 
 -- name: UpdateUserDetails :one
 UPDATE users
@@ -72,4 +73,8 @@ SET must_change_password = $2,
 WHERE id = $1
 RETURNING *;
 
-
+-- name: UpdateUserSiteID :exec
+UPDATE users
+SET site_id = $2,
+    updated_at = NOW()
+WHERE id = $1;

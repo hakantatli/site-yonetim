@@ -125,4 +125,80 @@ func TestSiteIsolationMiddleware(t *testing.T) {
 			t.Fatalf("expected 403 Forbidden for cross-site access, got %d", rr.Code)
 		}
 	})
+
+	t.Run("admin can access another site they manage via siteService", func(t *testing.T) {
+		siteSvc := &stubSiteService{
+			isUserAdminOfSiteFn: func(ctx context.Context, siteID string, userID string) (bool, error) {
+				return siteID == siteB && userID == "admin-1", nil
+			},
+		}
+		adminIsolation := SiteIsolationMiddleware(siteSvc)
+
+		claims := &service.JWTClaims{
+			UserID: "admin-1",
+			Role:   domain.RoleAdmin,
+			SiteID: &siteA,
+		}
+
+		r := chi.NewRouter()
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := context.WithValue(req.Context(), UserClaimsKey, claims)
+				next.ServeHTTP(w, req.WithContext(ctx))
+			})
+		})
+		r.With(adminIsolation).Get("/sites/{siteID}/data", dummyHandler)
+
+		req := httptest.NewRequest("GET", "/sites/"+siteB+"/data", nil)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected admin to access siteB managed by them, got %d", rr.Code)
+		}
+	})
+
+	t.Run("admin is forbidden from site they do not manage", func(t *testing.T) {
+		siteSvc := &stubSiteService{
+			isUserAdminOfSiteFn: func(ctx context.Context, siteID string, userID string) (bool, error) {
+				return false, nil
+			},
+		}
+		adminIsolation := SiteIsolationMiddleware(siteSvc)
+
+		claims := &service.JWTClaims{
+			UserID: "admin-1",
+			Role:   domain.RoleAdmin,
+			SiteID: &siteA,
+		}
+
+		r := chi.NewRouter()
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				ctx := context.WithValue(req.Context(), UserClaimsKey, claims)
+				next.ServeHTTP(w, req.WithContext(ctx))
+			})
+		})
+		r.With(adminIsolation).Get("/sites/{siteID}/data", dummyHandler)
+
+		req := httptest.NewRequest("GET", "/sites/"+siteB+"/data", nil)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 Forbidden for unmanaged site, got %d", rr.Code)
+		}
+	})
+}
+
+type stubSiteService struct {
+	service.SiteService
+	isUserAdminOfSiteFn func(ctx context.Context, siteID string, userID string) (bool, error)
+}
+
+func (s *stubSiteService) IsUserAdminOfSite(ctx context.Context, siteID string, userID string) (bool, error) {
+	if s.isUserAdminOfSiteFn != nil {
+		return s.isUserAdminOfSiteFn(ctx, siteID, userID)
+	}
+	return false, nil
 }

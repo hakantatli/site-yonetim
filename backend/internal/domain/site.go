@@ -26,6 +26,11 @@ type CreateSiteRequest struct {
 	ApartmentLimit *int32  `json:"apartment_limit,omitempty"`
 }
 
+type CreateAdminSiteRequest struct {
+	Name    string  `json:"name"`
+	Address *string `json:"address,omitempty"`
+}
+
 type UpdateLimitRequest struct {
 	ApartmentLimit int32 `json:"apartment_limit"`
 }

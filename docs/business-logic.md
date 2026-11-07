@@ -115,9 +115,10 @@ Bu sayede yönetici dairenin hem bu ayki tüketim ücretini hem de geçmişten d
 
 ---
 
-## 7. Fiyatlandırma & Freemium Modeli
+## 7. Fiyatlandırma, Self-Service Kayıt & Freemium Modeli
 
+- **Self-Service Yönetici Kaydı ve Çoklu Site:** Dışarıdan site/apartman yöneticileri `/register` üzerinden kendi hesaplarını ve ilk sitelerini oluşturabilir, sonrasında `/admin` panelinden istedikleri kadar yeni site ekleyebilirler.
 - Model site bazlıdır:
-  - **Ücretsiz Katman (Free Tier):** 10 daireye kadar kullanım tamamen ücretsizdir.
+  - **Ücretsiz Katman (Free Tier):** Yöneticinin eklediği her bir sitede **10 daireye kadar** kullanım tamamen ücretsizdir (`apartment_limit = 10`).
   - **Ücretli Katman:** 10 dairenin üzerindeki siteler için ek daire başına ücretlendirme uygulanır.
 - **Limit Aşımı Davranışı:** 10 daire sınırına ulaşıldığında sistem yeni daire ekleme butonunu ve API isteğini **tamamen bloke eder**. Daire eklenebilmesi için limitin Owner tarafından yükseltilmesi gerekir.

@@ -25,6 +25,7 @@ type UserRepository interface {
 	UpdateUserDetails(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error)
 	UpdateUserPassword(ctx context.Context, id string, passwordHash string, mustChangePassword bool) error
 	SetMustChangePassword(ctx context.Context, id string, mustChangePassword bool) error
+	UpdateSiteID(ctx context.Context, userID string, siteID string) error
 }
 
 type pgUserRepository struct {
@@ -232,5 +233,12 @@ func (r *pgUserRepository) SetMustChangePassword(ctx context.Context, id string,
 		MustChangePassword: mustChangePassword,
 	})
 	return err
+}
+
+func (r *pgUserRepository) UpdateSiteID(ctx context.Context, userID string, siteID string) error {
+	return r.queries.UpdateUserSiteID(ctx, db.UpdateUserSiteIDParams{
+		ID:     StringToUUID(userID),
+		SiteID: StringToUUID(siteID),
+	})
 }
 

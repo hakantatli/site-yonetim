@@ -11,6 +11,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addSiteAdmin = `-- name: AddSiteAdmin :exec
+INSERT INTO site_admins (site_id, user_id)
+VALUES ($1, $2)
+ON CONFLICT (site_id, user_id) DO NOTHING
+`
+
+type AddSiteAdminParams struct {
+	SiteID pgtype.UUID `json:"site_id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) AddSiteAdmin(ctx context.Context, arg AddSiteAdminParams) error {
+	_, err := q.db.Exec(ctx, addSiteAdmin, arg.SiteID, arg.UserID)
+	return err
+}
+
 const createSite = `-- name: CreateSite :one
 INSERT INTO sites (name, address, apartment_limit)
 VALUES ($1, $2, $3)
@@ -106,6 +122,25 @@ func (q *Queries) GetSiteDetails(ctx context.Context, id pgtype.UUID) (GetSiteDe
 	return i, err
 }
 
+const isUserAdminOfSite = `-- name: IsUserAdminOfSite :one
+SELECT EXISTS (
+    SELECT 1 FROM site_admins
+    WHERE site_id = $1 AND user_id = $2
+) AS is_admin
+`
+
+type IsUserAdminOfSiteParams struct {
+	SiteID pgtype.UUID `json:"site_id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) IsUserAdminOfSite(ctx context.Context, arg IsUserAdminOfSiteParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isUserAdminOfSite, arg.SiteID, arg.UserID)
+	var is_admin bool
+	err := row.Scan(&is_admin)
+	return is_admin, err
+}
+
 const listAllSiteIDs = `-- name: ListAllSiteIDs :many
 SELECT id, name FROM sites ORDER BY name ASC
 `
@@ -144,10 +179,10 @@ SELECT
     s.created_at,
     s.updated_at,
     COUNT(DISTINCT a.id)::int AS apartment_count,
-    COUNT(DISTINCT u.id)::int AS admin_count
+    COUNT(DISTINCT sa.user_id)::int AS admin_count
 FROM sites s
 LEFT JOIN apartments a ON a.site_id = s.id AND a.is_active = TRUE
-LEFT JOIN users u ON u.site_id = s.id AND u.role = 'admin' AND u.is_active = TRUE
+LEFT JOIN site_admins sa ON sa.site_id = s.id
 GROUP BY s.id
 ORDER BY s.created_at DESC
 `
@@ -172,6 +207,64 @@ func (q *Queries) ListSites(ctx context.Context) ([]ListSitesRow, error) {
 	items := []ListSitesRow{}
 	for rows.Next() {
 		var i ListSitesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Address,
+			&i.ApartmentLimit,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ApartmentCount,
+			&i.AdminCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSitesByAdminID = `-- name: ListSitesByAdminID :many
+SELECT 
+    s.id,
+    s.name,
+    s.address,
+    s.apartment_limit,
+    s.created_at,
+    s.updated_at,
+    COUNT(DISTINCT a.id)::int AS apartment_count,
+    COUNT(DISTINCT sa_all.user_id)::int AS admin_count
+FROM sites s
+INNER JOIN site_admins sa ON sa.site_id = s.id AND sa.user_id = $1
+LEFT JOIN apartments a ON a.site_id = s.id AND a.is_active = TRUE
+LEFT JOIN site_admins sa_all ON sa_all.site_id = s.id
+GROUP BY s.id
+ORDER BY s.created_at DESC
+`
+
+type ListSitesByAdminIDRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	Name           string             `json:"name"`
+	Address        pgtype.Text        `json:"address"`
+	ApartmentLimit int32              `json:"apartment_limit"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ApartmentCount int32              `json:"apartment_count"`
+	AdminCount     int32              `json:"admin_count"`
+}
+
+func (q *Queries) ListSitesByAdminID(ctx context.Context, userID pgtype.UUID) ([]ListSitesByAdminIDRow, error) {
+	rows, err := q.db.Query(ctx, listSitesByAdminID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSitesByAdminIDRow{}
+	for rows.Next() {
+		var i ListSitesByAdminIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,

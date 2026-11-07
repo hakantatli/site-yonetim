@@ -1,12 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore } from './store/auth';
+import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { OwnerDashboard } from './pages/owner/OwnerDashboard';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { ResidentDashboard } from './pages/resident/ResidentDashboard';
-
 import { SiteDetailPage } from './pages/owner/SiteDetailPage';
 import { ToastContainer } from './components/ui/Toast';
 
@@ -19,28 +19,15 @@ const queryClient = new QueryClient({
   },
 });
 
-function RootRedirect() {
-  const { isAuthenticated, user } = useAuthStore();
-
-  if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (user.role === 'owner') return <Navigate to="/owner/sites" replace />;
-  if (user.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
-  return <Navigate to="/resident/dashboard" replace />;
-}
-
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-
-          {/* Root Redirect */}
-          <Route path="/" element={<RootRedirect />} />
+          <Route path="/register" element={<RegisterPage />} />
 
           {/* Owner Protected Routes */}
           <Route element={<ProtectedRoute allowedRoles={['owner']} />}>

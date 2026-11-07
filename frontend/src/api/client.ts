@@ -54,7 +54,8 @@ apiClient.interceptors.response.use(
     // Do not retry on auth endpoints
     if (
       originalRequest?.url?.includes('/auth/login') ||
-      originalRequest?.url?.includes('/auth/refresh')
+      originalRequest?.url?.includes('/auth/refresh') ||
+      originalRequest?.url?.includes('/auth/register')
     ) {
       return Promise.reject(error);
     }

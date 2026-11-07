@@ -24,6 +24,7 @@ type AdminHandler struct {
 	expenseService      service.ExpenseService
 	meterService        service.MeterService
 	announcementService service.AnnouncementService
+	siteService         service.SiteService
 }
 
 func NewAdminHandler(
@@ -33,7 +34,12 @@ func NewAdminHandler(
 	expenseService service.ExpenseService,
 	meterService service.MeterService,
 	announcementService service.AnnouncementService,
+	siteService ...service.SiteService,
 ) *AdminHandler {
+	var s service.SiteService
+	if len(siteService) > 0 {
+		s = siteService[0]
+	}
 	return &AdminHandler{
 		apartmentService:    apartmentService,
 		dueService:          dueService,
@@ -41,11 +47,16 @@ func NewAdminHandler(
 		expenseService:      expenseService,
 		meterService:        meterService,
 		announcementService: announcementService,
+		siteService:         s,
 	}
 }
 
 func (h *AdminHandler) Routes() chi.Router {
 	r := chi.NewRouter()
+
+	// Sites (Multi-site management for Admin)
+	r.Get("/sites", h.ListAdminSites)
+	r.Post("/sites", h.CreateAdminSite)
 
 	// Blocks
 	r.Get("/blocks", h.ListBlocks)
@@ -139,15 +150,29 @@ func (h *AdminHandler) getSiteID(r *http.Request) (string, error) {
 		siteID = r.URL.Query().Get("siteId")
 	}
 
-	// If user is not owner, they can only access their own site
 	if claims.Role != domain.RoleOwner {
-		if claims.SiteID == nil || *claims.SiteID == "" {
-			return "", errors.New("user has no assigned site")
-		}
-		if siteID != "" && siteID != *claims.SiteID {
+		if siteID != "" {
+			if claims.SiteID != nil && *claims.SiteID == siteID {
+				return siteID, nil
+			}
+			if h.siteService != nil {
+				ok, err := h.siteService.IsUserAdminOfSite(r.Context(), siteID, claims.UserID)
+				if err == nil && ok {
+					return siteID, nil
+				}
+			}
 			return "", errors.New("forbidden: cross-site access prohibited")
 		}
-		return *claims.SiteID, nil
+		if claims.SiteID != nil && *claims.SiteID != "" {
+			return *claims.SiteID, nil
+		}
+		if h.siteService != nil {
+			sites, err := h.siteService.ListSitesByAdmin(r.Context(), claims.UserID)
+			if err == nil && len(sites) > 0 {
+				return sites[0].ID, nil
+			}
+		}
+		return "", errors.New("user has no assigned site")
 	}
 
 	// User is owner
@@ -159,6 +184,57 @@ func (h *AdminHandler) getSiteID(r *http.Request) (string, error) {
 	}
 
 	return "", errors.New("site ID required for this operation")
+}
+
+func (h *AdminHandler) ListAdminSites(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok {
+		respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	if claims.Role == domain.RoleOwner {
+		sites, err := h.siteService.ListSites(r.Context())
+		if err != nil {
+			respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "siteler listelenemedi"})
+			return
+		}
+		respondJSON(w, http.StatusOK, sites)
+		return
+	}
+
+	sites, err := h.siteService.ListSitesByAdmin(r.Context(), claims.UserID)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "siteler listelenemedi"})
+		return
+	}
+	respondJSON(w, http.StatusOK, sites)
+}
+
+func (h *AdminHandler) CreateAdminSite(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok {
+		respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	var req domain.CreateAdminSiteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz istek gövdesi"})
+		return
+	}
+
+	site, err := h.siteService.CreateSiteForAdmin(r.Context(), claims.UserID, req)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidSiteInput) {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, site)
 }
 
 // Blocks

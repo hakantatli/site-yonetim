@@ -31,6 +31,7 @@ Bu belge, Site Yönetim Uygulamasının HTTP REST API sözleşmesini, yetkilendi
 
 | Metot | Rota | Yetki | Açıklama |
 |---|---|---|---|
+| `POST` | `/auth/register` | Public | Dışarıdan yeni Site Yöneticisi (`admin`) ve ilk sitesini (`apartment_limit = 10`) kaydedip oturum açar. |
 | `POST` | `/auth/login` | Public | Telefon (veya e-posta) + şifre ile giriş yapar. Access & refresh token döner. |
 | `POST` | `/auth/refresh` | Public | Refresh token ile yeni access token üretir. |
 | `POST` | `/auth/logout` | Public | Refresh token'ı iptal eder ve oturumu sonlandırır. |
@@ -55,6 +56,10 @@ Yalnızca `owner` rolündeki kullanıcılar erişebilir:
 ## 4. Yönetici Rotaları (`/api/v1/admin` veya `/api/v1/sites/{siteID}/admin`)
 
 `admin` veya `owner` rolündeki kullanıcılar erişebilir:
+
+### Çoklu Site Yönetimi
+- `GET /admin/sites`: Yöneticinin yetkili olduğu tüm siteleri (`site_admins` üzerinden) listeler (`owner` için tüm siteleri döner).
+- `POST /admin/sites`: Yöneticinin hesabına bağlı yeni bir site oluşturur (sabit `apartment_limit = 10` ücretsiz limit ve varsayılan gider kategorileriyle).
 
 ### Daire ve Sakin Yönetimi
 - `GET /admin/apartments`: Sitedeki aktif daireleri ve sakinlerini listeler.

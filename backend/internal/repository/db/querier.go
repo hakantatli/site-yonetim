@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	AccrueMonthlyDue(ctx context.Context, arg AccrueMonthlyDueParams) (pgtype.UUID, error)
+	AddSiteAdmin(ctx context.Context, arg AddSiteAdminParams) error
 	CountActiveApartmentsBySiteID(ctx context.Context, siteID pgtype.UUID) (int64, error)
 	CountExpensesByCategoryID(ctx context.Context, arg CountExpensesByCategoryIDParams) (int64, error)
 	CountPeriodsByMeterTypeID(ctx context.Context, arg CountPeriodsByMeterTypeIDParams) (int64, error)
@@ -73,6 +74,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (Users, error)
 	GetUserByPhone(ctx context.Context, phone string) (Users, error)
 	GetUserByPhoneOrEmail(ctx context.Context, phone string) (Users, error)
+	IsUserAdminOfSite(ctx context.Context, arg IsUserAdminOfSiteParams) (bool, error)
 	ListActiveApartmentsForAccrual(ctx context.Context, siteID pgtype.UUID) ([]ListActiveApartmentsForAccrualRow, error)
 	ListAdminsBySiteID(ctx context.Context, siteID pgtype.UUID) ([]ListAdminsBySiteIDRow, error)
 	ListAllExpenseCategoriesBySiteID(ctx context.Context, siteID pgtype.UUID) ([]ExpenseCategories, error)
@@ -91,6 +93,7 @@ type Querier interface {
 	ListPaymentsByDebt(ctx context.Context, arg ListPaymentsByDebtParams) ([]ListPaymentsByDebtRow, error)
 	ListPaymentsBySite(ctx context.Context, arg ListPaymentsBySiteParams) ([]ListPaymentsBySiteRow, error)
 	ListSites(ctx context.Context) ([]ListSitesRow, error)
+	ListSitesByAdminID(ctx context.Context, userID pgtype.UUID) ([]ListSitesByAdminIDRow, error)
 	ListTenantHistoryByApartmentID(ctx context.Context, apartmentID pgtype.UUID) ([]ListTenantHistoryByApartmentIDRow, error)
 	RemoveApartmentTenant(ctx context.Context, arg RemoveApartmentTenantParams) error
 	RevokeRefreshToken(ctx context.Context, tokenHash string) (RefreshTokens, error)
@@ -110,6 +113,7 @@ type Querier interface {
 	UpdateSiteLimit(ctx context.Context, arg UpdateSiteLimitParams) (Sites, error)
 	UpdateUserDetails(ctx context.Context, arg UpdateUserDetailsParams) (Users, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (Users, error)
+	UpdateUserSiteID(ctx context.Context, arg UpdateUserSiteIDParams) error
 	UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) (Users, error)
 	UpsertDueRate(ctx context.Context, arg UpsertDueRateParams) (DueRates, error)
 }

@@ -93,3 +93,12 @@ type UpdateResidentRequest struct {
 	Password *string `json:"password,omitempty"`
 }
 
+type RegisterAdminRequest struct {
+	FullName    string  `json:"full_name"`
+	Phone       string  `json:"phone"`
+	Email       *string `json:"email,omitempty"`
+	Password    string  `json:"password"`
+	SiteName    string  `json:"site_name"`
+	SiteAddress *string `json:"site_address,omitempty"`
+}
+

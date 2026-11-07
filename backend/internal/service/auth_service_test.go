@@ -307,3 +307,187 @@ func TestAuthService_DismissPasswordChange(t *testing.T) {
 	}
 }
 
+func TestAuthService_RegisterAdmin(t *testing.T) {
+	ctx := context.Background()
+	cfg := newTestConfig()
+
+	t.Run("valid registration creates site with limit 10, creates admin, and returns tokens", func(t *testing.T) {
+		siteCreated := false
+		var createdSiteLimit int32
+		catsCreated := false
+		adminAdded := false
+
+		siteRepo := &mockSiteRepository{
+			createFn: func(ctx context.Context, name string, address *string, limit int32) (*domain.Site, error) {
+				siteCreated = true
+				createdSiteLimit = limit
+				return &domain.Site{
+					ID:             "site-10",
+					Name:           name,
+					ApartmentLimit: limit,
+				}, nil
+			},
+			createDefaultCatsFn: func(ctx context.Context, siteID string) error {
+				catsCreated = true
+				return nil
+			},
+			addAdminFn: func(ctx context.Context, siteID string, userID string) error {
+				if siteID == "site-10" && userID == "user-admin-1" {
+					adminAdded = true
+				}
+				return nil
+			},
+		}
+
+		userRepo := &mockUserRepository{
+			getByPhoneFn: func(ctx context.Context, phone string) (*domain.User, string, error) {
+				return nil, "", nil
+			},
+			createFn: func(ctx context.Context, user *domain.User, passwordHash string) (*domain.User, error) {
+				if user.Role != domain.RoleAdmin {
+					t.Errorf("expected role admin, got %s", user.Role)
+				}
+				if *user.SiteID != "site-10" {
+					t.Errorf("expected site_id site-10, got %s", *user.SiteID)
+				}
+				return &domain.User{
+					ID:       "user-admin-1",
+					SiteID:   user.SiteID,
+					Phone:    user.Phone,
+					Email:    user.Email,
+					FullName: user.FullName,
+					Role:     user.Role,
+					IsActive: true,
+				}, nil
+			},
+		}
+
+		tokenRepo := &mockTokenRepository{
+			createRefreshTokenFn: func(ctx context.Context, userID string, tokenHash string, expiresAt time.Time) error {
+				return nil
+			},
+		}
+
+		svc := NewAuthService(cfg, userRepo, tokenRepo, siteRepo)
+
+		email := "admin@example.com"
+		address := "Kadıköy / İstanbul"
+		req := domain.RegisterAdminRequest{
+			FullName:    "Ahmet Yılmaz",
+			Phone:       "0555 111 22 33",
+			Email:       &email,
+			Password:    "Secret123!",
+			SiteName:    "Güneş Sitesi",
+			SiteAddress: &address,
+		}
+
+		tokens, err := svc.RegisterAdmin(ctx, req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !siteCreated || createdSiteLimit != 10 {
+			t.Errorf("expected site to be created with apartment limit 10")
+		}
+		if !catsCreated {
+			t.Errorf("expected default categories to be created")
+		}
+		if !adminAdded {
+			t.Errorf("expected admin to be linked to site")
+		}
+		if tokens == nil || tokens.AccessToken == "" || tokens.RefreshToken == "" {
+			t.Errorf("expected non-empty tokens, got %+v", tokens)
+		}
+		if tokens.User.ID != "user-admin-1" || tokens.User.Role != domain.RoleAdmin {
+			t.Errorf("user mismatch in tokens: %+v", tokens.User)
+		}
+	})
+
+	t.Run("duplicate phone returns ErrPhoneAlreadyExists", func(t *testing.T) {
+		siteRepo := &mockSiteRepository{}
+		userRepo := &mockUserRepository{
+			getByPhoneFn: func(ctx context.Context, phone string) (*domain.User, string, error) {
+				return &domain.User{
+					ID:    "existing-user",
+					Phone: phone,
+				}, "hash", nil
+			},
+		}
+
+		svc := NewAuthService(cfg, userRepo, &mockTokenRepository{}, siteRepo)
+		req := domain.RegisterAdminRequest{
+			FullName: "Ahmet Yılmaz",
+			Phone:    "0555 111 22 33",
+			Password: "Secret123!",
+			SiteName: "Güneş Sitesi",
+		}
+
+		_, err := svc.RegisterAdmin(ctx, req)
+		if err != ErrPhoneAlreadyExists {
+			t.Fatalf("expected ErrPhoneAlreadyExists, got %v", err)
+		}
+	})
+
+	t.Run("short password returns ErrPasswordTooShort", func(t *testing.T) {
+		siteRepo := &mockSiteRepository{}
+		userRepo := &mockUserRepository{
+			getByPhoneFn: func(ctx context.Context, phone string) (*domain.User, string, error) {
+				return nil, "", nil
+			},
+		}
+
+		svc := NewAuthService(cfg, userRepo, &mockTokenRepository{}, siteRepo)
+		req := domain.RegisterAdminRequest{
+			FullName: "Ahmet Yılmaz",
+			Phone:    "0555 111 22 33",
+			Password: "123",
+			SiteName: "Güneş Sitesi",
+		}
+
+		_, err := svc.RegisterAdmin(ctx, req)
+		if err != ErrPasswordTooShort {
+			t.Fatalf("expected ErrPasswordTooShort, got %v", err)
+		}
+	})
+
+	t.Run("missing required fields returns ErrRegistrationInput", func(t *testing.T) {
+		siteRepo := &mockSiteRepository{}
+		userRepo := &mockUserRepository{}
+
+		svc := NewAuthService(cfg, userRepo, &mockTokenRepository{}, siteRepo)
+
+		// Missing FullName
+		_, err := svc.RegisterAdmin(ctx, domain.RegisterAdminRequest{
+			FullName: "   ",
+			Phone:    "0555 111 22 33",
+			Password: "Secret123!",
+			SiteName: "Güneş Sitesi",
+		})
+		if err != ErrRegistrationInput {
+			t.Errorf("expected ErrRegistrationInput for empty FullName, got %v", err)
+		}
+
+		// Missing SiteName
+		_, err = svc.RegisterAdmin(ctx, domain.RegisterAdminRequest{
+			FullName: "Ahmet Yılmaz",
+			Phone:    "0555 111 22 33",
+			Password: "Secret123!",
+			SiteName: "  ",
+		})
+		if err != ErrRegistrationInput {
+			t.Errorf("expected ErrRegistrationInput for empty SiteName, got %v", err)
+		}
+
+		// Missing Phone
+		_, err = svc.RegisterAdmin(ctx, domain.RegisterAdminRequest{
+			FullName: "Ahmet Yılmaz",
+			Phone:    "",
+			Password: "Secret123!",
+			SiteName: "Güneş Sitesi",
+		})
+		if err != ErrRegistrationInput {
+			t.Errorf("expected ErrRegistrationInput for empty Phone, got %v", err)
+		}
+	})
+}
+

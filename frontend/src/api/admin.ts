@@ -1,7 +1,21 @@
 import { apiClient } from './client';
 import type { Apartment, Block, CreateApartmentRequest, UpdateApartmentRequest, ResidentInput, RemoveTenantRequest, TenantHistoryItem } from '../types/apartment';
+import type { SiteItem } from './owner';
+
+export type Site = SiteItem;
 
 export const adminApi = {
+  // Sites (Multi-site management for Admin)
+  listSites: async (): Promise<Site[]> => {
+    const { data } = await apiClient.get<Site[]>('/admin/sites');
+    return data;
+  },
+
+  createSite: async (payload: { name: string; address?: string }): Promise<Site> => {
+    const { data } = await apiClient.post<Site>('/admin/sites', payload);
+    return data;
+  },
+
   // Blocks
   listBlocks: async (siteId?: string): Promise<Block[]> => {
     const { data } = await apiClient.get<Block[]>('/admin/blocks', {

@@ -26,6 +26,7 @@ Bu belge, PostgreSQL 16 veritabanı şemasını, migrasyon döngüsünü, SQLC s
 | `00007` | `00007_add_is_due_exempt_to_apartments.sql` | Dairelere aidat muafiyet bayrağı (`is_due_exempt`) eklendi. |
 | `00008` | `00008_add_must_change_password_to_users.sql` | İlk girişte şifre değiştirme bayrağı (`must_change_password`) eklendi. |
 | `00009` | `00009_add_expense_invoices.sql` | Masraf fatura ve fişleri için `expense_invoices` (BYTEA) tablosu eklendi. |
+| `00010` | `00010_add_site_admins.sql` | Yöneticilerin birden fazla site oluşturup yönetebilmesi için `site_admins (site_id, user_id)` ilişki tablosu eklendi. |
 
 ---
 
@@ -39,15 +40,16 @@ Bu belge, PostgreSQL 16 veritabanı şemasını, migrasyon döngüsünü, SQLC s
 - `initial_balance (NUMERIC(12,2), DEFAULT 0)` — Kasa açılış devir bakiyesi
 - `is_active (BOOLEAN, DEFAULT TRUE)`
 
-### 2. `users` (Kullanıcılar)
+### 2. `users` & `site_admins` (Kullanıcılar ve Çoklu Site Yöneticiliği)
 - `id (UUID, PK)`
-- `site_id (UUID, FK -> sites, NULLable)` — Owner için boştur, yönetici ve sakinler bağlıdır
+- `site_id (UUID, FK -> sites, NULLable)` — Owner için boştur; yönetici için varsayılan/ilk siteyi, sakinler için bağlı olduğu siteyi tutar
 - `role (TEXT)` — `owner`, `admin`, `resident`
 - `full_name (TEXT)`
 - `phone (TEXT, UNIQUE)` — Zorunlu tekil giriş alanı
 - `email (TEXT)` — Opsiyonel
 - `password_hash (TEXT)` — bcrypt hash
 - `must_change_password (BOOLEAN, DEFAULT FALSE)`
+- `site_admins (site_id UUID, user_id UUID, created_at TIMESTAMPTZ, PK(site_id, user_id))` — Bir yöneticinin birden fazla siteyi yönetebilmesini sağlayan çoka-çok ilişki tablosu
 
 ### 3. `apartments` (Daireler)
 - `id (UUID, PK)`

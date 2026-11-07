@@ -60,6 +60,20 @@ func main() {
 			slog.Warn("could not ensure must_change_password column", "error", err)
 		}
 		if _, err := dbPool.Exec(ctx, `
+			CREATE TABLE IF NOT EXISTS site_admins (
+				site_id    UUID        NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+				user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (site_id, user_id)
+			);
+			CREATE INDEX IF NOT EXISTS idx_site_admins_user_id ON site_admins (user_id);
+			INSERT INTO site_admins (site_id, user_id)
+			SELECT site_id, id FROM users WHERE role = 'admin' AND site_id IS NOT NULL
+			ON CONFLICT (site_id, user_id) DO NOTHING;
+		`); err != nil {
+			slog.Warn("could not ensure site_admins table", "error", err)
+		}
+		if _, err := dbPool.Exec(ctx, `
 			UPDATE debts d
 			SET debtor_user_id = a.owner_user_id, updated_at = NOW()
 			FROM apartments a, users u_debtor
@@ -104,7 +118,7 @@ func main() {
 	announcementRepo := repository.NewAnnouncementRepository(dbPool)
 
 	// Services
-	authService := service.NewAuthService(cfg, userRepo, tokenRepo)
+	authService := service.NewAuthService(cfg, userRepo, tokenRepo, siteRepo)
 	siteService := service.NewSiteService(siteRepo, userRepo)
 	apartmentService := service.NewApartmentService(apartmentRepo, siteRepo, userRepo)
 	dueService := service.NewDueService(dueRepo, debtRepo, apartmentRepo, siteRepo)
@@ -154,7 +168,7 @@ func main() {
 	loginLimiter := middleware.NewRateLimiter(10, 1*time.Minute)
 	authHandler := handler.NewAuthHandler(authService, loginLimiter)
 	ownerHandler := handler.NewOwnerHandler(siteService)
-	adminHandler := handler.NewAdminHandler(apartmentService, dueService, paymentService, expenseService, meterService, announcementService)
+	adminHandler := handler.NewAdminHandler(apartmentService, dueService, paymentService, expenseService, meterService, announcementService, siteService)
 	residentHandler := handler.NewResidentHandler(apartmentService, expenseService, meterService, announcementService, dueService, paymentService)
 
 	r := chi.NewRouter()
@@ -221,7 +235,7 @@ func main() {
 			siteScoped.Use(middleware.AuthMiddleware(authService))
 
 			siteScoped.Route("/sites/{siteID}", func(site chi.Router) {
-				site.Use(middleware.SiteIsolationMiddleware())
+				site.Use(middleware.SiteIsolationMiddleware(siteService))
 
 				site.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "application/json")

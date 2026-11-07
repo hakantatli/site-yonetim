@@ -21,6 +21,7 @@ type mockUserRepository struct {
 	updateUserDetailsFn func(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error)
 	updateUserPasswordFn func(ctx context.Context, id string, passwordHash string, mustChangePassword bool) error
 	setMustChangePasswordFn func(ctx context.Context, id string, mustChangePassword bool) error
+	updateSiteIDFn func(ctx context.Context, userID string, siteID string) error
 }
 
 func (m *mockUserRepository) GetByPhoneOrEmail(ctx context.Context, identifier string) (*domain.User, string, error) {
@@ -98,6 +99,13 @@ func (m *mockUserRepository) SetMustChangePassword(ctx context.Context, id strin
 	return nil
 }
 
+func (m *mockUserRepository) UpdateSiteID(ctx context.Context, userID string, siteID string) error {
+	if m.updateSiteIDFn != nil {
+		return m.updateSiteIDFn(ctx, userID, siteID)
+	}
+	return nil
+}
+
 
 // MockTokenRepository
 type mockTokenRepository struct {
@@ -143,6 +151,9 @@ type mockSiteRepository struct {
 	getDetailsFn         func(ctx context.Context, id string) (*domain.SiteDetail, error)
 	updateLimitFn        func(ctx context.Context, id string, limit int32) (*domain.Site, error)
 	createDefaultCatsFn  func(ctx context.Context, siteID string) error
+	addAdminFn          func(ctx context.Context, siteID string, userID string) error
+	listByAdminIDFn     func(ctx context.Context, userID string) ([]domain.Site, error)
+	isUserAdminOfSiteFn func(ctx context.Context, siteID string, userID string) (bool, error)
 }
 
 func (m *mockSiteRepository) Create(ctx context.Context, name string, address *string, limit int32) (*domain.Site, error) {
@@ -185,6 +196,27 @@ func (m *mockSiteRepository) CreateDefaultCategories(ctx context.Context, siteID
 		return m.createDefaultCatsFn(ctx, siteID)
 	}
 	return nil
+}
+
+func (m *mockSiteRepository) AddAdmin(ctx context.Context, siteID string, userID string) error {
+	if m.addAdminFn != nil {
+		return m.addAdminFn(ctx, siteID, userID)
+	}
+	return nil
+}
+
+func (m *mockSiteRepository) ListByAdminID(ctx context.Context, userID string) ([]domain.Site, error) {
+	if m.listByAdminIDFn != nil {
+		return m.listByAdminIDFn(ctx, userID)
+	}
+	return nil, nil
+}
+
+func (m *mockSiteRepository) IsUserAdminOfSite(ctx context.Context, siteID string, userID string) (bool, error) {
+	if m.isUserAdminOfSiteFn != nil {
+		return m.isUserAdminOfSiteFn(ctx, siteID, userID)
+	}
+	return true, nil
 }
 
 // MockApartmentRepository

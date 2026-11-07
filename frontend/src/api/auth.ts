@@ -32,7 +32,21 @@ export interface ChangePasswordPayload {
   new_password: string;
 }
 
+export interface RegisterAdminPayload {
+  full_name: string;
+  phone: string;
+  email?: string;
+  password: string;
+  site_name: string;
+  site_address?: string;
+}
+
 export const authApi = {
+  register: async (payload: RegisterAdminPayload): Promise<TokenPairResponse> => {
+    const { data } = await apiClient.post<TokenPairResponse>('/auth/register', payload);
+    return data;
+  },
+
   login: async (payload: LoginPayload): Promise<TokenPairResponse> => {
     const { data } = await apiClient.post<TokenPairResponse>('/auth/login', payload);
     return data;

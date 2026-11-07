@@ -24,7 +24,9 @@
   - Genel sistem ve siteler arası genel yönetimi sağlar.
 
 - **Site Yöneticisi:**
-  - Yalnızca sorumlu olduğu kendi sitesini görebilir ve yönetebilir (Site bazlı veri izolasyonu).
+  - Sisteme dışarıdan `/register` ekranı üzerinden kendi başına kayıt olabilir (Self-Service Kayıt) ve istediği kadar site oluşturabilir.
+  - Yalnızca sorumlu olduğu kendi sitelerini (`site_admins` tablosunda eşleşen siteler) görebilir, üst menüdeki site seçici ile siteleri arasında geçiş yapabilir ve yönetebilir (Site bazlı veri izolasyonu).
+  - Oluşturduğu her yeni site sabit olarak **10 daireye kadar ücretsiz (`apartment_limit = 10`)** başlangıç limiti ile açılır.
   - Site sakinlerini (ev sahibi / kiracı), blokları, daireleri, aidatları, masrafları ve duyuruları yönetir.
   - Masraf kategorilerini kendi sitesi için özelleştirebilir (ekleyebilir, düzenleyebilir, silebilir).
 
@@ -96,6 +98,10 @@
 
 #### 7. Temel Ekranlar (MVP Kapsamı)
 
+- **Tanıtım Sayfası (Landing Page — `/`) ve Yönetici Kaydı (`/register`):**
+  - Yazılımın özelliklerini (şeffaf kasa, fatura belgesi arşivi, süzme sayaç dağıtımı, aidat takibi) ve **"Her sitede 10 daireye kadar tamamen ücretsiz"** fiyatlandırma modelini tanıtan halka açık ön sayfa (`LandingPage.tsx`).
+  - Dışarıdan gelen yöneticilerin kendi hesaplarını ve ilk sitelerini (`apartment_limit = 10`) oluşturabildiği kayıt ekranı (`RegisterPage.tsx`) ve tek tıkla canlı demo ("Çınar Park Sitesi") giriş kısayolları.
+
 - **Owner Paneli:**
   - Site listesi ve detayları (daire sayısı, freemium/ücretli durum)
   - Yeni site ekleme
@@ -103,6 +109,7 @@
   - Herhangi bir sitenin yönetici paneline tam yetkiyle erişim
 
 - **Yönetici Paneli:**
+  - Çoklu site seçici (Site Switcher) ve sınırsız yeni site ekleme (her sitede 10 daireye kadar ücretsiz limit ile)
   - Daire ve sakin yönetimi (Blok, Kapı No, Ev Sahibi / Kiracı)
   - Kiracı değişimi (borç devir seçeneği ile)
   - Manuel tahsilat / kısmi ödeme girişi

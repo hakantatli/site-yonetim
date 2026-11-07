@@ -188,6 +188,12 @@ type RefreshTokens struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type SiteAdmins struct {
+	SiteID    pgtype.UUID        `json:"site_id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Sites struct {
 	ID             pgtype.UUID        `json:"id"`
 	Name           string             `json:"name"`

@@ -71,7 +71,7 @@ func RequireRole(roles ...domain.UserRole) func(http.Handler) http.Handler {
 	}
 }
 
-func SiteIsolationMiddleware() func(http.Handler) http.Handler {
+func SiteIsolationMiddleware(siteService ...service.SiteService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims, ok := GetClaims(r.Context())
@@ -89,10 +89,19 @@ func SiteIsolationMiddleware() func(http.Handler) http.Handler {
 			// For Admin and Resident: check siteID from URL param
 			urlSiteID := chi.URLParam(r, "siteID")
 			if urlSiteID != "" {
-				if claims.SiteID == nil || *claims.SiteID != urlSiteID {
-					http.Error(w, `{"error":"forbidden: cross-site access prohibited"}`, http.StatusForbidden)
+				if claims.SiteID != nil && *claims.SiteID == urlSiteID {
+					next.ServeHTTP(w, r)
 					return
 				}
+				if claims.Role == domain.RoleAdmin && len(siteService) > 0 && siteService[0] != nil {
+					isAdmin, err := siteService[0].IsUserAdminOfSite(r.Context(), urlSiteID, claims.UserID)
+					if err == nil && isAdmin {
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
+				http.Error(w, `{"error":"forbidden: cross-site access prohibited"}`, http.StatusForbidden)
+				return
 			}
 
 			next.ServeHTTP(w, r)

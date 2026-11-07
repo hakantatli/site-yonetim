@@ -28,8 +28,10 @@ func (h *AuthHandler) Routes() chi.Router {
 
 	if h.rateLimiter != nil {
 		r.With(h.rateLimiter.Limit).Post("/login", h.Login)
+		r.With(h.rateLimiter.Limit).Post("/register", h.Register)
 	} else {
 		r.Post("/login", h.Login)
+		r.Post("/register", h.Register)
 	}
 	r.Post("/refresh", h.Refresh)
 	r.Post("/logout", h.Logout)
@@ -42,6 +44,29 @@ func (h *AuthHandler) Routes() chi.Router {
 	})
 
 	return r
+}
+
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var req domain.RegisterAdminRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz istek gövdesi"})
+		return
+	}
+
+	tokenPair, err := h.authService.RegisterAdmin(r.Context(), req)
+	if err != nil {
+		if errors.Is(err, service.ErrRegistrationInput) ||
+			errors.Is(err, service.ErrPasswordTooShort) ||
+			errors.Is(err, service.ErrPhoneAlreadyExists) ||
+			errors.Is(err, service.ErrEmailAlreadyExists) {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "kayıt işlemi sırasında bir hata oluştu"})
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, tokenPair)
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {

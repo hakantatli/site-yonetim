@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { useNavigate, useLocation, Navigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { authApi } from '../api/auth';
 import { maskPhoneInput, cleanPhone, formatPhone } from '../utils/phone';
-import { Building2, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
+import { Building2, Lock, Mail, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -175,6 +175,13 @@ export function LoginPage() {
             </div>
           </form>
 
+          <div className="mt-4 text-center text-xs text-slate-600">
+            Yönetici hesabınız yok mu?{' '}
+            <Link to="/register" className="font-semibold text-blue-600 hover:text-blue-700 underline">
+              Ücretsiz Kayıt Olun
+            </Link>
+          </div>
+
           {/* Demo Account Quick-Fill Card */}
           <div className="mt-6 pt-6 border-t border-slate-100">
             <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 text-xs">
@@ -226,6 +233,16 @@ export function LoginPage() {
               </div>
             </div>
           )}
+
+          <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Ana Sayfaya Dön</span>
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -22,9 +22,12 @@ var (
 type SiteService interface {
 	CreateSite(ctx context.Context, req domain.CreateSiteRequest) (*domain.Site, error)
 	ListSites(ctx context.Context) ([]domain.Site, error)
+	ListSitesByAdmin(ctx context.Context, userID string) ([]domain.Site, error)
 	GetSiteDetails(ctx context.Context, id string) (*domain.SiteDetail, error)
 	UpdateLimit(ctx context.Context, id string, limit int32) (*domain.Site, error)
 	CreateAdmin(ctx context.Context, siteID string, req domain.CreateAdminRequest) (*domain.User, error)
+	CreateSiteForAdmin(ctx context.Context, userID string, req domain.CreateAdminSiteRequest) (*domain.Site, error)
+	IsUserAdminOfSite(ctx context.Context, siteID string, userID string) (bool, error)
 }
 
 type siteService struct {
@@ -141,5 +144,50 @@ func (s *siteService) CreateAdmin(ctx context.Context, siteID string, req domain
 		return nil, err
 	}
 
+	_ = s.siteRepo.AddAdmin(ctx, siteID, created.ID)
+
 	return created, nil
+}
+
+func (s *siteService) ListSitesByAdmin(ctx context.Context, userID string) ([]domain.Site, error) {
+	return s.siteRepo.ListByAdminID(ctx, userID)
+}
+
+func (s *siteService) CreateSiteForAdmin(ctx context.Context, userID string, req domain.CreateAdminSiteRequest) (*domain.Site, error) {
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, ErrInvalidSiteInput
+	}
+
+	var address *string
+	if req.Address != nil {
+		trimmed := strings.TrimSpace(*req.Address)
+		if trimmed != "" {
+			address = &trimmed
+		}
+	}
+
+	const freeTierLimit int32 = 10
+	site, err := s.siteRepo.Create(ctx, name, address, freeTierLimit)
+	if err != nil {
+		return nil, fmt.Errorf("site oluşturulamadı: %w", err)
+	}
+
+	_ = s.siteRepo.CreateDefaultCategories(ctx, site.ID)
+
+	if err := s.siteRepo.AddAdmin(ctx, site.ID, userID); err != nil {
+		return nil, err
+	}
+
+	u, err := s.userRepo.GetByID(ctx, userID)
+	if err == nil && u != nil && (u.SiteID == nil || *u.SiteID == "") {
+		_ = s.userRepo.UpdateSiteID(ctx, userID, site.ID)
+	}
+
+	site.AdminCount = 1
+	return site, nil
+}
+
+func (s *siteService) IsUserAdminOfSite(ctx context.Context, siteID string, userID string) (bool, error) {
+	return s.siteRepo.IsUserAdminOfSite(ctx, siteID, userID)
 }

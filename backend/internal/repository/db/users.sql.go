@@ -178,10 +178,11 @@ func (q *Queries) GetUserByPhoneOrEmail(ctx context.Context, phone string) (User
 }
 
 const listAdminsBySiteID = `-- name: ListAdminsBySiteID :many
-SELECT id, site_id, email, full_name, phone, role, is_active, must_change_password, created_at, updated_at
-FROM users
-WHERE site_id = $1 AND role = 'admin'
-ORDER BY created_at DESC
+SELECT DISTINCT u.id, u.site_id, u.email, u.full_name, u.phone, u.role, u.is_active, u.must_change_password, u.created_at, u.updated_at
+FROM users u
+LEFT JOIN site_admins sa ON sa.user_id = u.id
+WHERE (u.site_id = $1 OR sa.site_id = $1) AND u.role = 'admin'
+ORDER BY u.created_at DESC
 `
 
 type ListAdminsBySiteIDRow struct {
@@ -333,6 +334,23 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 		&i.MustChangePassword,
 	)
 	return i, err
+}
+
+const updateUserSiteID = `-- name: UpdateUserSiteID :exec
+UPDATE users
+SET site_id = $2,
+    updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateUserSiteIDParams struct {
+	ID     pgtype.UUID `json:"id"`
+	SiteID pgtype.UUID `json:"site_id"`
+}
+
+func (q *Queries) UpdateUserSiteID(ctx context.Context, arg UpdateUserSiteIDParams) error {
+	_, err := q.db.Exec(ctx, updateUserSiteID, arg.ID, arg.SiteID)
+	return err
 }
 
 const updateUserStatus = `-- name: UpdateUserStatus :one

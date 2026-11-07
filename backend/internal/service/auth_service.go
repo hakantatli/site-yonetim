@@ -23,6 +23,9 @@ var (
 	ErrInvalidToken           = errors.New("geçersiz veya süresi dolmuş oturum")
 	ErrInvalidCurrentPassword = errors.New("mevcut şifre hatalı")
 	ErrPasswordTooShort       = errors.New("yeni şifre en az 6 karakter olmalıdır")
+	ErrRegistrationInput      = errors.New("ad soyad, telefon numarası, şifre ve ilk site adı zorunludur")
+	ErrPhoneAlreadyExists     = errors.New("bu telefon numarası zaten kayıtlı")
+	ErrEmailAlreadyExists     = errors.New("bu e-posta adresi zaten kayıtlı")
 )
 
 type JWTClaims struct {
@@ -43,20 +46,26 @@ type AuthService interface {
 	SeedOwnerIfEmpty(ctx context.Context, phone string, email *string, password string, fullName string) error
 	ChangePassword(ctx context.Context, userID string, req domain.ChangePasswordRequest) (*domain.TokenPair, error)
 	DismissPasswordChange(ctx context.Context, userID string) error
+	RegisterAdmin(ctx context.Context, req domain.RegisterAdminRequest) (*domain.TokenPair, error)
 }
 
 type authService struct {
 	cfg       *config.Config
 	userRepo  repository.UserRepository
 	tokenRepo repository.TokenRepository
+	siteRepo  repository.SiteRepository
 }
 
-func NewAuthService(cfg *config.Config, userRepo repository.UserRepository, tokenRepo repository.TokenRepository) AuthService {
-	return &authService{
+func NewAuthService(cfg *config.Config, userRepo repository.UserRepository, tokenRepo repository.TokenRepository, siteRepo ...repository.SiteRepository) AuthService {
+	s := &authService{
 		cfg:       cfg,
 		userRepo:  userRepo,
 		tokenRepo: tokenRepo,
 	}
+	if len(siteRepo) > 0 {
+		s.siteRepo = siteRepo[0]
+	}
+	return s
 }
 
 func (s *authService) Login(ctx context.Context, identifier, password string) (*domain.TokenPair, error) {
@@ -217,6 +226,78 @@ func (s *authService) DismissPasswordChange(ctx context.Context, userID string) 
 		return ErrUserInactive
 	}
 	return s.userRepo.SetMustChangePassword(ctx, userID, false)
+}
+
+func (s *authService) RegisterAdmin(ctx context.Context, req domain.RegisterAdminRequest) (*domain.TokenPair, error) {
+	if s.siteRepo == nil {
+		return nil, errors.New("site repository is not configured")
+	}
+
+	phone := domain.CleanPhone(req.Phone)
+	fullName := strings.TrimSpace(req.FullName)
+	password := strings.TrimSpace(req.Password)
+	siteName := strings.TrimSpace(req.SiteName)
+
+	if fullName == "" || phone == "" || siteName == "" {
+		return nil, ErrRegistrationInput
+	}
+
+	if len(password) < 6 {
+		return nil, ErrPasswordTooShort
+	}
+
+	existingPhone, _, _ := s.userRepo.GetByPhone(ctx, phone)
+	if existingPhone != nil {
+		return nil, ErrPhoneAlreadyExists
+	}
+
+	var email *string
+	if req.Email != nil && strings.TrimSpace(*req.Email) != "" {
+		trimmedEmail := strings.TrimSpace(*req.Email)
+		existingEmail, _, _ := s.userRepo.GetByEmail(ctx, trimmedEmail)
+		if existingEmail != nil {
+			return nil, ErrEmailAlreadyExists
+		}
+		email = &trimmedEmail
+	}
+
+	var siteAddress *string
+	if req.SiteAddress != nil && strings.TrimSpace(*req.SiteAddress) != "" {
+		trimmedAddress := strings.TrimSpace(*req.SiteAddress)
+		siteAddress = &trimmedAddress
+	}
+
+	site, err := s.siteRepo.Create(ctx, siteName, siteAddress, 10)
+	if err != nil {
+		return nil, err
+	}
+	_ = s.siteRepo.CreateDefaultCategories(ctx, site.ID)
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	adminUser := &domain.User{
+		SiteID:             &site.ID,
+		Phone:              phone,
+		Email:              email,
+		FullName:           fullName,
+		Role:               domain.RoleAdmin,
+		IsActive:           true,
+		MustChangePassword: false,
+	}
+
+	createdUser, err := s.userRepo.Create(ctx, adminUser, string(hash))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.siteRepo.AddAdmin(ctx, site.ID, createdUser.ID); err != nil {
+		return nil, err
+	}
+
+	return s.generateTokenPair(ctx, createdUser)
 }
 
 func (s *authService) generateTokenPair(ctx context.Context, user *domain.User) (*domain.TokenPair, error) {
