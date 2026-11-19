@@ -21,6 +21,7 @@ type MeterService interface {
 	CreateConsumptionPeriod(ctx context.Context, siteID string, createdBy string, req domain.CreateConsumptionPeriodPayload) (*domain.ConsumptionPeriod, []domain.MeterReading, error)
 	ListConsumptionPeriods(ctx context.Context, siteID string) ([]domain.ConsumptionPeriod, error)
 	GetConsumptionPeriod(ctx context.Context, id, siteID string) (*domain.ConsumptionPeriod, []domain.MeterReading, error)
+	GetConsumptionPeriodInvoice(ctx context.Context, id, siteID string) (*domain.ConsumptionPeriodInvoice, error)
 	DeleteConsumptionPeriod(ctx context.Context, id, siteID string) error
 	GetResidentMeterHistory(ctx context.Context, userID, siteID string) ([]domain.ResidentMeterHistoryItem, error)
 }
@@ -111,6 +112,33 @@ func (s *meterService) CreateConsumptionPeriod(
 	}
 
 	unitCost := req.TotalBillAmount / totalBilledConsumption
+
+	// Validate invoice file before creating any debts or period rows
+	var invoiceToSave *domain.ConsumptionPeriodInvoice
+	if len(req.InvoiceFileData) > 0 {
+		normalizedType, err := validateInvoiceFile(req.InvoiceFileName, req.InvoiceFileData)
+		if err != nil {
+			return nil, nil, err
+		}
+		fileName := "fatura.jpg"
+		switch normalizedType {
+		case "application/pdf":
+			fileName = "fatura.pdf"
+		case "image/png":
+			fileName = "fatura.png"
+		case "image/webp":
+			fileName = "fatura.webp"
+		}
+		if req.InvoiceFileName != nil && strings.TrimSpace(*req.InvoiceFileName) != "" {
+			fileName = strings.TrimSpace(*req.InvoiceFileName)
+		}
+		invoiceToSave = &domain.ConsumptionPeriodInvoice{
+			FileName: fileName,
+			FileType: normalizedType,
+			FileSize: len(req.InvoiceFileData),
+			FileData: req.InvoiceFileData,
+		}
+	}
 
 	// Sayaç türünü doğrula
 	meterType, err := s.meterRepo.GetMeterTypeByID(ctx, req.MeterTypeID, siteID)
@@ -257,7 +285,7 @@ func (s *meterService) CreateConsumptionPeriod(
 		CreatedBy:                  &createdBy,
 	}
 
-	return s.meterRepo.CreateConsumptionPeriodWithReadings(ctx, period, readingsToSave)
+	return s.meterRepo.CreateConsumptionPeriodWithReadings(ctx, period, readingsToSave, invoiceToSave)
 }
 
 func (s *meterService) ListConsumptionPeriods(ctx context.Context, siteID string) ([]domain.ConsumptionPeriod, error) {
@@ -266,6 +294,13 @@ func (s *meterService) ListConsumptionPeriods(ctx context.Context, siteID string
 
 func (s *meterService) GetConsumptionPeriod(ctx context.Context, id, siteID string) (*domain.ConsumptionPeriod, []domain.MeterReading, error) {
 	return s.meterRepo.GetConsumptionPeriod(ctx, id, siteID)
+}
+
+func (s *meterService) GetConsumptionPeriodInvoice(ctx context.Context, id, siteID string) (*domain.ConsumptionPeriodInvoice, error) {
+	if _, _, err := s.meterRepo.GetConsumptionPeriod(ctx, id, siteID); err != nil {
+		return nil, domain.ErrPeriodNotFound
+	}
+	return s.meterRepo.GetConsumptionPeriodInvoice(ctx, id)
 }
 
 func (s *meterService) DeleteConsumptionPeriod(ctx context.Context, id, siteID string) error {

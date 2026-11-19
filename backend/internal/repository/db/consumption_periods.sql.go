@@ -93,6 +93,56 @@ func (q *Queries) CreateConsumptionPeriod(ctx context.Context, arg CreateConsump
 	return i, err
 }
 
+const createConsumptionPeriodInvoice = `-- name: CreateConsumptionPeriodInvoice :one
+INSERT INTO consumption_period_invoices (
+    consumption_period_id,
+    file_name,
+    file_type,
+    file_size,
+    file_data
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, consumption_period_id, file_name, file_type, file_size, created_at
+`
+
+type CreateConsumptionPeriodInvoiceParams struct {
+	ConsumptionPeriodID pgtype.UUID `json:"consumption_period_id"`
+	FileName            string      `json:"file_name"`
+	FileType            string      `json:"file_type"`
+	FileSize            int32       `json:"file_size"`
+	FileData            []byte      `json:"file_data"`
+}
+
+type CreateConsumptionPeriodInvoiceRow struct {
+	ID                  pgtype.UUID        `json:"id"`
+	ConsumptionPeriodID pgtype.UUID        `json:"consumption_period_id"`
+	FileName            string             `json:"file_name"`
+	FileType            string             `json:"file_type"`
+	FileSize            int32              `json:"file_size"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CreateConsumptionPeriodInvoice(ctx context.Context, arg CreateConsumptionPeriodInvoiceParams) (CreateConsumptionPeriodInvoiceRow, error) {
+	row := q.db.QueryRow(ctx, createConsumptionPeriodInvoice,
+		arg.ConsumptionPeriodID,
+		arg.FileName,
+		arg.FileType,
+		arg.FileSize,
+		arg.FileData,
+	)
+	var i CreateConsumptionPeriodInvoiceRow
+	err := row.Scan(
+		&i.ID,
+		&i.ConsumptionPeriodID,
+		&i.FileName,
+		&i.FileType,
+		&i.FileSize,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createMeterReading = `-- name: CreateMeterReading :one
 INSERT INTO meter_readings (
     consumption_period_id,
@@ -181,9 +231,14 @@ const getConsumptionPeriodByID = `-- name: GetConsumptionPeriodByID :one
 SELECT
     cp.id, cp.site_id, cp.meter_type_id, cp.period, cp.main_meter_previous, cp.main_meter_current, cp.total_billed_consumption, cp.total_apartments_consumption, cp.common_area_consumption, cp.total_bill_amount, cp.unit_cost, cp.common_area_cost, cp.bill_date, cp.bill_no, cp.description, cp.created_by, cp.created_at, cp.updated_at,
     mt.name AS meter_type_name,
-    mt.unit AS meter_type_unit
+    mt.unit AS meter_type_unit,
+    cpi.id AS invoice_id,
+    cpi.file_name AS invoice_file_name,
+    cpi.file_size AS invoice_file_size,
+    cpi.file_type AS invoice_file_type
 FROM consumption_periods cp
 JOIN meter_types mt ON cp.meter_type_id = mt.id
+LEFT JOIN consumption_period_invoices cpi ON cpi.consumption_period_id = cp.id
 WHERE cp.id = $1 AND cp.site_id = $2
 LIMIT 1
 `
@@ -214,6 +269,10 @@ type GetConsumptionPeriodByIDRow struct {
 	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
 	MeterTypeName              string             `json:"meter_type_name"`
 	MeterTypeUnit              string             `json:"meter_type_unit"`
+	InvoiceID                  pgtype.UUID        `json:"invoice_id"`
+	InvoiceFileName            pgtype.Text        `json:"invoice_file_name"`
+	InvoiceFileSize            pgtype.Int4        `json:"invoice_file_size"`
+	InvoiceFileType            pgtype.Text        `json:"invoice_file_type"`
 }
 
 func (q *Queries) GetConsumptionPeriodByID(ctx context.Context, arg GetConsumptionPeriodByIDParams) (GetConsumptionPeriodByIDRow, error) {
@@ -240,6 +299,39 @@ func (q *Queries) GetConsumptionPeriodByID(ctx context.Context, arg GetConsumpti
 		&i.UpdatedAt,
 		&i.MeterTypeName,
 		&i.MeterTypeUnit,
+		&i.InvoiceID,
+		&i.InvoiceFileName,
+		&i.InvoiceFileSize,
+		&i.InvoiceFileType,
+	)
+	return i, err
+}
+
+const getConsumptionPeriodInvoiceByPeriodID = `-- name: GetConsumptionPeriodInvoiceByPeriodID :one
+SELECT
+    id,
+    consumption_period_id,
+    file_name,
+    file_type,
+    file_size,
+    file_data,
+    created_at
+FROM consumption_period_invoices
+WHERE consumption_period_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetConsumptionPeriodInvoiceByPeriodID(ctx context.Context, consumptionPeriodID pgtype.UUID) (ConsumptionPeriodInvoices, error) {
+	row := q.db.QueryRow(ctx, getConsumptionPeriodInvoiceByPeriodID, consumptionPeriodID)
+	var i ConsumptionPeriodInvoices
+	err := row.Scan(
+		&i.ID,
+		&i.ConsumptionPeriodID,
+		&i.FileName,
+		&i.FileType,
+		&i.FileSize,
+		&i.FileData,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -375,6 +467,7 @@ SELECT
     mr.total_amount,
     d.id AS debt_id,
     d.status AS debt_status,
+    cp.id AS consumption_period_id,
     cp.period,
     cp.bill_date,
     cp.bill_no,
@@ -383,11 +476,16 @@ SELECT
     cp.total_billed_consumption,
     cp.common_area_consumption,
     mt.name AS meter_type_name,
-    mt.unit AS meter_type_unit
+    mt.unit AS meter_type_unit,
+    cpi.id AS invoice_id,
+    cpi.file_name AS invoice_file_name,
+    cpi.file_size AS invoice_file_size,
+    cpi.file_type AS invoice_file_type
 FROM meter_readings mr
 JOIN consumption_periods cp ON mr.consumption_period_id = cp.id
 JOIN meter_types mt ON cp.meter_type_id = mt.id
 LEFT JOIN debts d ON mr.debt_id = d.id
+LEFT JOIN consumption_period_invoices cpi ON cpi.consumption_period_id = cp.id
 WHERE mr.apartment_id = $1
 ORDER BY cp.period DESC, mr.created_at DESC
 `
@@ -403,6 +501,7 @@ type GetResidentMeterHistoryByApartmentIDRow struct {
 	TotalAmount            pgtype.Numeric `json:"total_amount"`
 	DebtID                 pgtype.UUID    `json:"debt_id"`
 	DebtStatus             pgtype.Text    `json:"debt_status"`
+	ConsumptionPeriodID    pgtype.UUID    `json:"consumption_period_id"`
 	Period                 pgtype.Date    `json:"period"`
 	BillDate               pgtype.Date    `json:"bill_date"`
 	BillNo                 pgtype.Text    `json:"bill_no"`
@@ -412,6 +511,10 @@ type GetResidentMeterHistoryByApartmentIDRow struct {
 	CommonAreaConsumption  pgtype.Numeric `json:"common_area_consumption"`
 	MeterTypeName          string         `json:"meter_type_name"`
 	MeterTypeUnit          string         `json:"meter_type_unit"`
+	InvoiceID              pgtype.UUID    `json:"invoice_id"`
+	InvoiceFileName        pgtype.Text    `json:"invoice_file_name"`
+	InvoiceFileSize        pgtype.Int4    `json:"invoice_file_size"`
+	InvoiceFileType        pgtype.Text    `json:"invoice_file_type"`
 }
 
 func (q *Queries) GetResidentMeterHistoryByApartmentID(ctx context.Context, apartmentID pgtype.UUID) ([]GetResidentMeterHistoryByApartmentIDRow, error) {
@@ -434,6 +537,7 @@ func (q *Queries) GetResidentMeterHistoryByApartmentID(ctx context.Context, apar
 			&i.TotalAmount,
 			&i.DebtID,
 			&i.DebtStatus,
+			&i.ConsumptionPeriodID,
 			&i.Period,
 			&i.BillDate,
 			&i.BillNo,
@@ -443,6 +547,10 @@ func (q *Queries) GetResidentMeterHistoryByApartmentID(ctx context.Context, apar
 			&i.CommonAreaConsumption,
 			&i.MeterTypeName,
 			&i.MeterTypeUnit,
+			&i.InvoiceID,
+			&i.InvoiceFileName,
+			&i.InvoiceFileSize,
+			&i.InvoiceFileType,
 		); err != nil {
 			return nil, err
 		}
@@ -459,12 +567,17 @@ SELECT
     cp.id, cp.site_id, cp.meter_type_id, cp.period, cp.main_meter_previous, cp.main_meter_current, cp.total_billed_consumption, cp.total_apartments_consumption, cp.common_area_consumption, cp.total_bill_amount, cp.unit_cost, cp.common_area_cost, cp.bill_date, cp.bill_no, cp.description, cp.created_by, cp.created_at, cp.updated_at,
     mt.name AS meter_type_name,
     mt.unit AS meter_type_unit,
-    COUNT(mr.id)::BIGINT AS reading_count
+    COUNT(mr.id)::BIGINT AS reading_count,
+    cpi.id AS invoice_id,
+    cpi.file_name AS invoice_file_name,
+    cpi.file_size AS invoice_file_size,
+    cpi.file_type AS invoice_file_type
 FROM consumption_periods cp
 JOIN meter_types mt ON cp.meter_type_id = mt.id
 LEFT JOIN meter_readings mr ON mr.consumption_period_id = cp.id
+LEFT JOIN consumption_period_invoices cpi ON cpi.consumption_period_id = cp.id
 WHERE cp.site_id = $1
-GROUP BY cp.id, mt.name, mt.unit
+GROUP BY cp.id, mt.name, mt.unit, cpi.id, cpi.file_name, cpi.file_size, cpi.file_type
 ORDER BY cp.period DESC, cp.created_at DESC
 `
 
@@ -490,6 +603,10 @@ type ListConsumptionPeriodsBySiteRow struct {
 	MeterTypeName              string             `json:"meter_type_name"`
 	MeterTypeUnit              string             `json:"meter_type_unit"`
 	ReadingCount               int64              `json:"reading_count"`
+	InvoiceID                  pgtype.UUID        `json:"invoice_id"`
+	InvoiceFileName            pgtype.Text        `json:"invoice_file_name"`
+	InvoiceFileSize            pgtype.Int4        `json:"invoice_file_size"`
+	InvoiceFileType            pgtype.Text        `json:"invoice_file_type"`
 }
 
 func (q *Queries) ListConsumptionPeriodsBySite(ctx context.Context, siteID pgtype.UUID) ([]ListConsumptionPeriodsBySiteRow, error) {
@@ -523,6 +640,10 @@ func (q *Queries) ListConsumptionPeriodsBySite(ctx context.Context, siteID pgtyp
 			&i.MeterTypeName,
 			&i.MeterTypeUnit,
 			&i.ReadingCount,
+			&i.InvoiceID,
+			&i.InvoiceFileName,
+			&i.InvoiceFileSize,
+			&i.InvoiceFileType,
 		); err != nil {
 			return nil, err
 		}

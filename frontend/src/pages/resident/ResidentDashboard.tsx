@@ -8,6 +8,7 @@ import { meterApi } from '../../api/meter';
 import { announcementApi } from '../../api/announcement';
 import { residentApi } from '../../api/resident';
 import { formatPeriodMonthYear } from '../../utils/date';
+import { isDemoUser } from '../../utils/demo';
 import { ChangePasswordModal } from '../../components/auth/ChangePasswordModal';
 import {
   Home,
@@ -33,6 +34,8 @@ import {
   Megaphone,
   CreditCard,
   ArrowLeftRight,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 
 export function ResidentDashboard() {
@@ -44,11 +47,11 @@ export function ResidentDashboard() {
   const [isFirstLoginPrompt, setIsFirstLoginPrompt] = useState(false);
 
   useEffect(() => {
-    if (user?.role === 'resident' && user?.must_change_password) {
+    if (user?.role === 'resident' && user?.must_change_password && !isDemoUser(user)) {
       setIsFirstLoginPrompt(true);
       setIsPasswordModalOpen(true);
     }
-  }, [user?.role, user?.must_change_password]);
+  }, [user?.role, user?.must_change_password, user]);
 
   const handleOpenPasswordModal = () => {
     setIsFirstLoginPrompt(false);
@@ -176,14 +179,16 @@ export function ResidentDashboard() {
               <span className="text-xs font-bold text-slate-900">{user?.full_name}</span>
               <span className="text-[11px] text-emerald-600 font-medium">{getRoleLabel(user?.role)}</span>
             </div>
-            <button
-              onClick={handleOpenPasswordModal}
-              className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 py-1.5 px-3 rounded-xl transition-colors cursor-pointer"
-              title="Şifrenizi Değiştirin"
-            >
-              <KeyRound className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Şifre Değiştir</span>
-            </button>
+            {!isDemoUser(user) && (
+              <button
+                onClick={handleOpenPasswordModal}
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 py-1.5 px-3 rounded-xl transition-colors cursor-pointer"
+                title="Şifrenizi Değiştirin"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Şifre Değiştir</span>
+              </button>
+            )}
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold py-1.5 px-3 rounded-xl border border-rose-100 hover:bg-rose-50 transition-colors cursor-pointer"
@@ -734,6 +739,19 @@ export function ResidentDashboard() {
                           </div>
 
                           <div className="flex items-center gap-3 self-end sm:self-auto">
+                            {item.invoice_id && (
+                              <a
+                                href={meterApi.getResidentPeriodInvoiceUrl(item.consumption_period_id, activeSiteId)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors"
+                                title={item.invoice_file_name || 'Gelen Fatura Belgesini Görüntüle'}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Fatura Belgesi</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
                             <div className="text-right">
                               <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
                                 Dairenize Düşen Toplam

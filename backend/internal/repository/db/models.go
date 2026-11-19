@@ -42,6 +42,16 @@ type Blocks struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type ConsumptionPeriodInvoices struct {
+	ID                  pgtype.UUID        `json:"id"`
+	ConsumptionPeriodID pgtype.UUID        `json:"consumption_period_id"`
+	FileName            string             `json:"file_name"`
+	FileType            string             `json:"file_type"`
+	FileSize            int32              `json:"file_size"`
+	FileData            []byte             `json:"file_data"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
 type ConsumptionPeriods struct {
 	ID                         pgtype.UUID        `json:"id"`
 	SiteID                     pgtype.UUID        `json:"site_id"`

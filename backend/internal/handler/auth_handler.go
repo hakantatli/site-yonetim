@@ -163,6 +163,10 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	tokenPair, err := h.authService.ChangePassword(r.Context(), claims.UserID, req)
 	if err != nil {
+		if errors.Is(err, service.ErrDemoAccountPasswordChange) {
+			respondJSON(w, http.StatusForbidden, map[string]string{"error": "Demo hesaplarında şifre değiştirilemez"})
+			return
+		}
 		if errors.Is(err, service.ErrPasswordTooShort) {
 			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "yeni şifre en az 6 karakter olmalıdır"})
 			return

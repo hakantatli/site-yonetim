@@ -1,11 +1,15 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hakantatli/site-yonetim/internal/domain"
 	"github.com/hakantatli/site-yonetim/internal/middleware"
+	"github.com/hakantatli/site-yonetim/internal/repository"
 	"github.com/hakantatli/site-yonetim/internal/service"
 )
 
@@ -47,6 +51,7 @@ func (h *ResidentHandler) Routes() chi.Router {
 
 	// Meters history for resident
 	r.Get("/meters/history", h.GetResidentMeterHistory)
+	r.Get("/meters/periods/{id}/invoice", h.GetConsumptionPeriodInvoice)
 
 	// Announcements for resident
 	r.Get("/announcements", h.ListAnnouncements)
@@ -180,6 +185,31 @@ func (h *ResidentHandler) GetResidentMeterHistory(w http.ResponseWriter, r *http
 	}
 
 	respondJSON(w, http.StatusOK, history)
+}
+
+func (h *ResidentHandler) GetConsumptionPeriodInvoice(w http.ResponseWriter, r *http.Request) {
+	siteID, _, ok := h.resolveSiteID(r)
+	if !ok || siteID == "" {
+		respondJSON(w, http.StatusForbidden, map[string]string{"error": "kullanıcının bağlı olduğu bir site veya daire bulunamadı"})
+		return
+	}
+
+	periodID := chi.URLParam(r, "id")
+	invoice, err := h.meterService.GetConsumptionPeriodInvoice(r.Context(), periodID, siteID)
+	if err != nil {
+		if errors.Is(err, domain.ErrPeriodNotFound) || errors.Is(err, repository.ErrInvoiceNotFound) || errors.Is(err, service.ErrInvoiceNotFound) {
+			respondJSON(w, http.StatusNotFound, map[string]string{"error": "fatura belgesi bulunamadı"})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", invoice.FileType)
+	w.Header().Set("Content-Length", strconv.Itoa(invoice.FileSize))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", invoice.FileName))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(invoice.FileData)
 }
 
 func (h *ResidentHandler) ListAnnouncements(w http.ResponseWriter, r *http.Request) {

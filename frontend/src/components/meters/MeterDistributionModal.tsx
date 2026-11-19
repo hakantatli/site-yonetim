@@ -10,6 +10,10 @@ import {
   CheckCircle2,
   Building,
   Loader2,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  Trash2,
 } from 'lucide-react';
 
 interface MeterDistributionModalProps {
@@ -48,6 +52,8 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
   const [billDate, setBillDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [billNo, setBillNo] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   // Apartment readings state
@@ -193,6 +199,47 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
     });
   };
 
+  const clearInvoiceFile = () => {
+    if (invoicePreviewUrl) {
+      URL.revokeObjectURL(invoicePreviewUrl);
+    }
+    setInvoiceFile(null);
+    setInvoicePreviewUrl(null);
+  };
+
+  const handleInvoiceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxBytes = 2 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setFormError('Fatura fotoğrafı / belgesi en fazla 2 MB olabilir');
+      e.target.value = '';
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+    if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
+      setFormError('Yalnızca JPEG, PNG, WEBP veya PDF formatında fatura yükleyebilirsiniz');
+      e.target.value = '';
+      return;
+    }
+
+    setFormError(null);
+    if (invoicePreviewUrl) {
+      URL.revokeObjectURL(invoicePreviewUrl);
+    }
+    setInvoiceFile(file);
+    if (file.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+      setInvoicePreviewUrl(URL.createObjectURL(file));
+    } else {
+      setInvoicePreviewUrl(null);
+    }
+    e.target.value = '';
+  };
+
   const createMutation = useMutation({
     mutationFn: (payload: CreateConsumptionPeriodPayload) =>
       meterApi.createConsumptionPeriod(payload, siteId),
@@ -200,6 +247,7 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
       queryClient.invalidateQueries({ queryKey: ['admin', 'consumption-periods', siteId] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'debts', siteId] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'meter-previous-readings', siteId] });
+      clearInvoiceFile();
       onClose();
     },
     onError: (err: any) => {
@@ -245,6 +293,7 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
       bill_no: billNo.trim() || undefined,
       description: description.trim() || undefined,
       readings,
+      invoice: invoiceFile || undefined,
     };
 
     const individualTotal = totalApartmentsAmount;
@@ -409,6 +458,55 @@ export function MeterDistributionModal({ isOpen, onClose, siteId }: MeterDistrib
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
                 />
+              </div>
+
+              <div className="sm:col-span-4">
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Gelen Fatura Fotoğrafı / Belgesi (Opsiyonel — JPEG, PNG, WEBP veya PDF, maks. 2 MB)
+                </label>
+                {invoiceFile ? (
+                  <div className="flex items-center justify-between gap-3 bg-white border border-blue-200 rounded-xl px-3 py-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {invoicePreviewUrl ? (
+                        <img
+                          src={invoicePreviewUrl}
+                          alt="Fatura önizleme"
+                          className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-slate-800 truncate">{invoiceFile.name}</p>
+                        <p className="text-[10px] text-slate-500">
+                          {(invoiceFile.size / 1024).toFixed(0)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearInvoiceFile}
+                      className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                      title="Dosyayı Kaldır"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 w-full px-3 py-2.5 bg-white border border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50/40 rounded-xl text-xs text-slate-600 cursor-pointer transition-colors">
+                    <Upload className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span className="font-medium">Fatura fotoğrafı seçin veya çekin (JPG, PNG, WEBP, PDF)</span>
+                    <ImageIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+                      onChange={handleInvoiceFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
             </div>
 

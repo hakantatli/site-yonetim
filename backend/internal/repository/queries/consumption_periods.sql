@@ -65,21 +65,31 @@ SELECT
     cp.*,
     mt.name AS meter_type_name,
     mt.unit AS meter_type_unit,
-    COUNT(mr.id)::BIGINT AS reading_count
+    COUNT(mr.id)::BIGINT AS reading_count,
+    cpi.id AS invoice_id,
+    cpi.file_name AS invoice_file_name,
+    cpi.file_size AS invoice_file_size,
+    cpi.file_type AS invoice_file_type
 FROM consumption_periods cp
 JOIN meter_types mt ON cp.meter_type_id = mt.id
 LEFT JOIN meter_readings mr ON mr.consumption_period_id = cp.id
+LEFT JOIN consumption_period_invoices cpi ON cpi.consumption_period_id = cp.id
 WHERE cp.site_id = $1
-GROUP BY cp.id, mt.name, mt.unit
+GROUP BY cp.id, mt.name, mt.unit, cpi.id, cpi.file_name, cpi.file_size, cpi.file_type
 ORDER BY cp.period DESC, cp.created_at DESC;
 
 -- name: GetConsumptionPeriodByID :one
 SELECT
     cp.*,
     mt.name AS meter_type_name,
-    mt.unit AS meter_type_unit
+    mt.unit AS meter_type_unit,
+    cpi.id AS invoice_id,
+    cpi.file_name AS invoice_file_name,
+    cpi.file_size AS invoice_file_size,
+    cpi.file_type AS invoice_file_type
 FROM consumption_periods cp
 JOIN meter_types mt ON cp.meter_type_id = mt.id
+LEFT JOIN consumption_period_invoices cpi ON cpi.consumption_period_id = cp.id
 WHERE cp.id = $1 AND cp.site_id = $2
 LIMIT 1;
 
@@ -158,6 +168,7 @@ SELECT
     mr.total_amount,
     d.id AS debt_id,
     d.status AS debt_status,
+    cp.id AS consumption_period_id,
     cp.period,
     cp.bill_date,
     cp.bill_no,
@@ -166,14 +177,44 @@ SELECT
     cp.total_billed_consumption,
     cp.common_area_consumption,
     mt.name AS meter_type_name,
-    mt.unit AS meter_type_unit
+    mt.unit AS meter_type_unit,
+    cpi.id AS invoice_id,
+    cpi.file_name AS invoice_file_name,
+    cpi.file_size AS invoice_file_size,
+    cpi.file_type AS invoice_file_type
 FROM meter_readings mr
 JOIN consumption_periods cp ON mr.consumption_period_id = cp.id
 JOIN meter_types mt ON cp.meter_type_id = mt.id
 LEFT JOIN debts d ON mr.debt_id = d.id
+LEFT JOIN consumption_period_invoices cpi ON cpi.consumption_period_id = cp.id
 WHERE mr.apartment_id = $1
 ORDER BY cp.period DESC, mr.created_at DESC;
 
 -- name: GetDebtIDsByPeriodID :many
 SELECT debt_id FROM meter_readings
 WHERE consumption_period_id = $1 AND debt_id IS NOT NULL;
+
+-- name: CreateConsumptionPeriodInvoice :one
+INSERT INTO consumption_period_invoices (
+    consumption_period_id,
+    file_name,
+    file_type,
+    file_size,
+    file_data
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, consumption_period_id, file_name, file_type, file_size, created_at;
+
+-- name: GetConsumptionPeriodInvoiceByPeriodID :one
+SELECT
+    id,
+    consumption_period_id,
+    file_name,
+    file_type,
+    file_size,
+    file_data,
+    created_at
+FROM consumption_period_invoices
+WHERE consumption_period_id = $1
+LIMIT 1;

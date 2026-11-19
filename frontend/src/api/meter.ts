@@ -65,12 +65,49 @@ export const meterApi = {
     payload: CreateConsumptionPeriodPayload,
     siteId?: string
   ): Promise<{ period: ConsumptionPeriod; readings: MeterReading[] }> => {
+    if (payload.invoice) {
+      const { invoice, ...jsonPayload } = payload;
+      const formData = new FormData();
+      formData.append('payload', JSON.stringify(jsonPayload));
+      formData.append('invoice', invoice);
+
+      const { data } = await apiClient.post<{ period: ConsumptionPeriod; readings: MeterReading[] }>(
+        '/admin/meters/periods',
+        formData,
+        {
+          params: siteId ? { siteId } : undefined,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return data;
+    }
+
     const { data } = await apiClient.post<{ period: ConsumptionPeriod; readings: MeterReading[] }>(
       '/admin/meters/periods',
       payload,
       { params: siteId ? { siteId } : undefined }
     );
     return data;
+  },
+
+  getPeriodInvoiceUrl: (periodId: string, siteId?: string): string => {
+    const token = localStorage.getItem('access_token');
+    const params = new URLSearchParams();
+    if (token) params.append('token', token);
+    if (siteId) params.append('siteId', siteId);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    return `/api/v1/admin/meters/periods/${periodId}/invoice${queryString}`;
+  },
+
+  getResidentPeriodInvoiceUrl: (periodId: string, siteId?: string): string => {
+    const token = localStorage.getItem('access_token');
+    const params = new URLSearchParams();
+    if (token) params.append('token', token);
+    if (siteId) params.append('site_id', siteId);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    return `/api/v1/resident/meters/periods/${periodId}/invoice${queryString}`;
   },
 
   getConsumptionPeriod: async (

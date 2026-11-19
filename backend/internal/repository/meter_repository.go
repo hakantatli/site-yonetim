@@ -22,9 +22,10 @@ type MeterRepository interface {
 	CountPeriodsByMeterType(ctx context.Context, meterTypeID, siteID string) (int64, error)
 
 	GetPreviousReadings(ctx context.Context, siteID, meterTypeID string) (float64, []domain.ApartmentLastReading, error)
-	CreateConsumptionPeriodWithReadings(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading) (*domain.ConsumptionPeriod, []domain.MeterReading, error)
+	CreateConsumptionPeriodWithReadings(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading, invoice *domain.ConsumptionPeriodInvoice) (*domain.ConsumptionPeriod, []domain.MeterReading, error)
 	ListConsumptionPeriods(ctx context.Context, siteID string) ([]domain.ConsumptionPeriod, error)
 	GetConsumptionPeriod(ctx context.Context, id, siteID string) (*domain.ConsumptionPeriod, []domain.MeterReading, error)
+	GetConsumptionPeriodInvoice(ctx context.Context, periodID string) (*domain.ConsumptionPeriodInvoice, error)
 	DeleteConsumptionPeriod(ctx context.Context, id, siteID string) ([]string, error)
 	GetResidentMeterHistory(ctx context.Context, apartmentID string) ([]domain.ResidentMeterHistoryItem, error)
 }
@@ -157,6 +158,7 @@ func (r *meterRepository) CreateConsumptionPeriodWithReadings(
 	ctx context.Context,
 	period *domain.ConsumptionPeriod,
 	readings []domain.MeterReading,
+	invoice *domain.ConsumptionPeriodInvoice,
 ) (*domain.ConsumptionPeriod, []domain.MeterReading, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -244,6 +246,25 @@ func (r *meterRepository) CreateConsumptionPeriodWithReadings(
 		}
 	}
 
+	if invoice != nil && len(invoice.FileData) > 0 {
+		invRow, err := qtx.CreateConsumptionPeriodInvoice(ctx, db.CreateConsumptionPeriodInvoiceParams{
+			ConsumptionPeriodID: pRow.ID,
+			FileName:            invoice.FileName,
+			FileType:            invoice.FileType,
+			FileSize:            int32(invoice.FileSize),
+			FileData:            invoice.FileData,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to save consumption period invoice: %w", err)
+		}
+		invID := UUIDToString(invRow.ID)
+		fileSize := int(invRow.FileSize)
+		period.InvoiceID = &invID
+		period.InvoiceFileName = &invRow.FileName
+		period.InvoiceFileType = &invRow.FileType
+		period.InvoiceFileSize = &fileSize
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, nil, fmt.Errorf("failed to commit tx: %w", err)
 	}
@@ -283,6 +304,10 @@ func (r *meterRepository) ListConsumptionPeriods(ctx context.Context, siteID str
 			BillNo:                     TextToPtrString(row.BillNo),
 			Description:                TextToPtrString(row.Description),
 			ReadingCount:               row.ReadingCount,
+			InvoiceID:                  UUIDToPtrString(row.InvoiceID),
+			InvoiceFileName:            TextToPtrString(row.InvoiceFileName),
+			InvoiceFileSize:            Int4ToPtrInt(row.InvoiceFileSize),
+			InvoiceFileType:            TextToPtrString(row.InvoiceFileType),
 			CreatedBy:                  UUIDToPtrString(row.CreatedBy),
 			CreatedAt:                  row.CreatedAt.Time,
 			UpdatedAt:                  row.UpdatedAt.Time,
@@ -327,6 +352,10 @@ func (r *meterRepository) GetConsumptionPeriod(ctx context.Context, id, siteID s
 		BillNo:                     TextToPtrString(pRow.BillNo),
 		Description:                TextToPtrString(pRow.Description),
 		ReadingCount:               int64(len(rRows)),
+		InvoiceID:                  UUIDToPtrString(pRow.InvoiceID),
+		InvoiceFileName:            TextToPtrString(pRow.InvoiceFileName),
+		InvoiceFileSize:            Int4ToPtrInt(pRow.InvoiceFileSize),
+		InvoiceFileType:            TextToPtrString(pRow.InvoiceFileType),
 		CreatedBy:                  UUIDToPtrString(pRow.CreatedBy),
 		CreatedAt:                  pRow.CreatedAt.Time,
 		UpdatedAt:                  pRow.UpdatedAt.Time,
@@ -388,6 +417,25 @@ func (r *meterRepository) DeleteConsumptionPeriod(ctx context.Context, id, siteI
 	return deletedDebtIDs, nil
 }
 
+func (r *meterRepository) GetConsumptionPeriodInvoice(ctx context.Context, periodID string) (*domain.ConsumptionPeriodInvoice, error) {
+	row, err := r.queries.GetConsumptionPeriodInvoiceByPeriodID(ctx, StringToUUID(periodID))
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrInvoiceNotFound
+		}
+		return nil, fmt.Errorf("failed to get consumption period invoice: %w", err)
+	}
+	return &domain.ConsumptionPeriodInvoice{
+		ID:                  UUIDToString(row.ID),
+		ConsumptionPeriodID: UUIDToString(row.ConsumptionPeriodID),
+		FileName:            row.FileName,
+		FileType:            row.FileType,
+		FileSize:            int(row.FileSize),
+		FileData:            row.FileData,
+		CreatedAt:           row.CreatedAt.Time,
+	}, nil
+}
+
 func (r *meterRepository) GetResidentMeterHistory(ctx context.Context, apartmentID string) ([]domain.ResidentMeterHistoryItem, error) {
 	rows, err := r.queries.GetResidentMeterHistoryByApartmentID(ctx, StringToUUID(apartmentID))
 	if err != nil {
@@ -400,6 +448,7 @@ func (r *meterRepository) GetResidentMeterHistory(ctx context.Context, apartment
 
 		res[i] = domain.ResidentMeterHistoryItem{
 			ReadingID:              UUIDToString(row.ReadingID),
+			ConsumptionPeriodID:    UUIDToString(row.ConsumptionPeriodID),
 			ReadingDate:            DateToString(row.ReadingDate),
 			PreviousReading:        NumericToFloat64(row.PreviousReading),
 			CurrentReading:         NumericToFloat64(row.CurrentReading),
@@ -418,6 +467,10 @@ func (r *meterRepository) GetResidentMeterHistory(ctx context.Context, apartment
 			CommonAreaConsumption:  NumericToFloat64(row.CommonAreaConsumption),
 			MeterTypeName:          row.MeterTypeName,
 			MeterTypeUnit:          row.MeterTypeUnit,
+			InvoiceID:              UUIDToPtrString(row.InvoiceID),
+			InvoiceFileName:        TextToPtrString(row.InvoiceFileName),
+			InvoiceFileSize:        Int4ToPtrInt(row.InvoiceFileSize),
+			InvoiceFileType:        TextToPtrString(row.InvoiceFileType),
 		}
 	}
 	return res, nil

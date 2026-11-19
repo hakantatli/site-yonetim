@@ -24,6 +24,7 @@ import type { ExpenseCategory, CreateExpensePayload } from '../../types/expense'
 import type { Announcement } from '../../types/announcement';
 import { maskPhoneInput, cleanPhone, formatPhone } from '../../utils/phone';
 import { formatPeriodMonthYear } from '../../utils/date';
+import { isDemoUser } from '../../utils/demo';
 import { ChangePasswordModal } from '../../components/auth/ChangePasswordModal';
 import {
   Building,
@@ -980,14 +981,16 @@ export function AdminDashboard() {
               <Shield className="w-4 h-4 text-indigo-600" />
               <span>{user?.full_name}</span>
             </div>
-            <button
-              onClick={() => setIsPasswordModalOpen(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
-              title="Şifrenizi Değiştirin"
-            >
-              <KeyRound className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Şifre Değiştir</span>
-            </button>
+            {!isDemoUser(user) && (
+              <button
+                onClick={() => setIsPasswordModalOpen(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 py-1.5 px-3 rounded-lg transition-colors cursor-pointer"
+                title="Şifrenizi Değiştirin"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Şifre Değiştir</span>
+              </button>
+            )}
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-medium py-1.5 px-3 rounded-lg hover:bg-rose-50 transition-colors"
@@ -3065,6 +3068,18 @@ export function AdminDashboard() {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              {cp.invoice_id && (
+                                <a
+                                  href={meterApi.getPeriodInvoiceUrl(cp.id, siteIdQuery)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg inline-flex items-center gap-1 transition-colors"
+                                  title={cp.invoice_file_name || 'Gelen Fatura Belgesini Görüntüle'}
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span>Fatura</span>
+                                </a>
+                              )}
                               <button
                                 onClick={() => setSelectedPeriodForDetail(cp.id)}
                                 className="px-2.5 py-1 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg cursor-pointer transition-colors"

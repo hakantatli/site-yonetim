@@ -680,9 +680,10 @@ type mockMeterRepository struct {
 	deleteMeterTypeFn                   func(ctx context.Context, id, siteID string) error
 	countPeriodsByMeterTypeFn           func(ctx context.Context, meterTypeID, siteID string) (int64, error)
 	getPreviousReadingsFn               func(ctx context.Context, siteID, meterTypeID string) (float64, []domain.ApartmentLastReading, error)
-	createConsumptionPeriodWithReadings func(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading) (*domain.ConsumptionPeriod, []domain.MeterReading, error)
+	createConsumptionPeriodWithReadings func(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading, invoice *domain.ConsumptionPeriodInvoice) (*domain.ConsumptionPeriod, []domain.MeterReading, error)
 	listConsumptionPeriodsFn            func(ctx context.Context, siteID string) ([]domain.ConsumptionPeriod, error)
 	getConsumptionPeriodFn              func(ctx context.Context, id, siteID string) (*domain.ConsumptionPeriod, []domain.MeterReading, error)
+	getConsumptionPeriodInvoiceFn       func(ctx context.Context, periodID string) (*domain.ConsumptionPeriodInvoice, error)
 	deleteConsumptionPeriodFn           func(ctx context.Context, id, siteID string) ([]string, error)
 	getResidentMeterHistoryFn           func(ctx context.Context, apartmentID string) ([]domain.ResidentMeterHistoryItem, error)
 }
@@ -736,11 +737,18 @@ func (m *mockMeterRepository) GetPreviousReadings(ctx context.Context, siteID, m
 	return 0, nil, nil
 }
 
-func (m *mockMeterRepository) CreateConsumptionPeriodWithReadings(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading) (*domain.ConsumptionPeriod, []domain.MeterReading, error) {
+func (m *mockMeterRepository) CreateConsumptionPeriodWithReadings(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading, invoice *domain.ConsumptionPeriodInvoice) (*domain.ConsumptionPeriod, []domain.MeterReading, error) {
 	if m.createConsumptionPeriodWithReadings != nil {
-		return m.createConsumptionPeriodWithReadings(ctx, period, readings)
+		return m.createConsumptionPeriodWithReadings(ctx, period, readings, invoice)
 	}
 	return period, readings, nil
+}
+
+func (m *mockMeterRepository) GetConsumptionPeriodInvoice(ctx context.Context, periodID string) (*domain.ConsumptionPeriodInvoice, error) {
+	if m.getConsumptionPeriodInvoiceFn != nil {
+		return m.getConsumptionPeriodInvoiceFn(ctx, periodID)
+	}
+	return nil, repository.ErrInvoiceNotFound
 }
 
 func (m *mockMeterRepository) ListConsumptionPeriods(ctx context.Context, siteID string) ([]domain.ConsumptionPeriod, error) {

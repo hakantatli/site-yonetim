@@ -74,6 +74,20 @@ func main() {
 			slog.Warn("could not ensure site_admins table", "error", err)
 		}
 		if _, err := dbPool.Exec(ctx, `
+			CREATE TABLE IF NOT EXISTS consumption_period_invoices (
+				id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+				consumption_period_id UUID        NOT NULL UNIQUE REFERENCES consumption_periods(id) ON DELETE CASCADE,
+				file_name             TEXT        NOT NULL,
+				file_type             TEXT        NOT NULL,
+				file_size             INTEGER     NOT NULL CHECK (file_size > 0 AND file_size <= 2097152),
+				file_data             BYTEA       NOT NULL,
+				created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS idx_consumption_period_invoices_period_id ON consumption_period_invoices (consumption_period_id);
+		`); err != nil {
+			slog.Warn("could not ensure consumption_period_invoices table", "error", err)
+		}
+		if _, err := dbPool.Exec(ctx, `
 			UPDATE debts d
 			SET debtor_user_id = a.owner_user_id, updated_at = NOW()
 			FROM apartments a, users u_debtor

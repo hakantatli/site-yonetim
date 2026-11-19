@@ -18,14 +18,15 @@ import (
 )
 
 var (
-	ErrInvalidCredentials     = errors.New("geçersiz telefon numarası / e-posta veya şifre")
-	ErrUserInactive           = errors.New("kullanıcı hesabı pasif durumda")
-	ErrInvalidToken           = errors.New("geçersiz veya süresi dolmuş oturum")
-	ErrInvalidCurrentPassword = errors.New("mevcut şifre hatalı")
-	ErrPasswordTooShort       = errors.New("yeni şifre en az 6 karakter olmalıdır")
-	ErrRegistrationInput      = errors.New("ad soyad, telefon numarası, şifre ve ilk site adı zorunludur")
-	ErrPhoneAlreadyExists     = errors.New("bu telefon numarası zaten kayıtlı")
-	ErrEmailAlreadyExists     = errors.New("bu e-posta adresi zaten kayıtlı")
+	ErrInvalidCredentials         = errors.New("geçersiz telefon numarası / e-posta veya şifre")
+	ErrUserInactive               = errors.New("kullanıcı hesabı pasif durumda")
+	ErrInvalidToken               = errors.New("geçersiz veya süresi dolmuş oturum")
+	ErrInvalidCurrentPassword     = errors.New("mevcut şifre hatalı")
+	ErrPasswordTooShort           = errors.New("yeni şifre en az 6 karakter olmalıdır")
+	ErrRegistrationInput          = errors.New("ad soyad, telefon numarası, şifre ve ilk site adı zorunludur")
+	ErrPhoneAlreadyExists         = errors.New("bu telefon numarası zaten kayıtlı")
+	ErrEmailAlreadyExists         = errors.New("bu e-posta adresi zaten kayıtlı")
+	ErrDemoAccountPasswordChange = errors.New("demo hesaplarında şifre değiştirilemez")
 )
 
 type JWTClaims struct {
@@ -188,6 +189,9 @@ func (s *authService) ChangePassword(ctx context.Context, userID string, req dom
 	}
 	if !user.IsActive {
 		return nil, ErrUserInactive
+	}
+	if domain.IsDemoPhone(user.Phone) || (user.Email != nil && strings.EqualFold(*user.Email, "yonetici@cinarpark.com")) {
+		return nil, ErrDemoAccountPasswordChange
 	}
 
 	// Verify current password if user is not in must_change_password mode, or if provided.

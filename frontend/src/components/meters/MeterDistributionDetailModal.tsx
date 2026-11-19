@@ -7,6 +7,8 @@ import {
   Printer,
   CheckCircle2,
   Clock,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 
 interface MeterDistributionDetailModalProps {
@@ -60,6 +62,19 @@ export function MeterDistributionDetailModal({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {period?.invoice_id && (
+              <a
+                href={meterApi.getPeriodInvoiceUrl(period.id, siteId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                title={period.invoice_file_name || 'Gelen Fatura Belgesini Görüntüle'}
+              >
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                <span>Fatura Belgesi</span>
+                <ExternalLink className="w-3 h-3 text-blue-500" />
+              </a>
+            )}
             <button
               type="button"
               onClick={handlePrint}

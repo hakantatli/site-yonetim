@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/auth';
 import { authApi } from '../../api/auth';
 import { toast } from '../../store/toast';
+import { isDemoUser } from '../../utils/demo';
 import {
   X,
   KeyRound,
@@ -24,7 +25,7 @@ export function ChangePasswordModal({
   onClose,
   isFirstLogin = false,
 }: ChangePasswordModalProps) {
-  const { setAuth, updateUser } = useAuthStore();
+  const { user, setAuth, updateUser } = useAuthStore();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -50,7 +51,7 @@ export function ChangePasswordModal({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || isDemoUser(user)) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

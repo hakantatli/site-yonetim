@@ -124,6 +124,7 @@ func (h *AdminHandler) Routes() chi.Router {
 	r.Get("/meters/periods", h.ListConsumptionPeriods)
 	r.Post("/meters/periods", h.CreateConsumptionPeriod)
 	r.Get("/meters/periods/{id}", h.GetConsumptionPeriod)
+	r.Get("/meters/periods/{id}/invoice", h.GetConsumptionPeriodInvoice)
 	r.Delete("/meters/periods/{id}", h.DeleteConsumptionPeriod)
 
 	// Announcements
@@ -525,7 +526,7 @@ func (h *AdminHandler) UpdateResident(w http.ResponseWriter, r *http.Request) {
 			respondJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
 			return
 		}
-		if errors.Is(err, service.ErrResidentForbidden) {
+		if errors.Is(err, service.ErrResidentForbidden) || errors.Is(err, service.ErrDemoAccountPasswordChange) {
 			respondJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 			return
 		}
@@ -1335,9 +1336,45 @@ func (h *AdminHandler) CreateConsumptionPeriod(w http.ResponseWriter, r *http.Re
 	}
 
 	var req domain.CreateConsumptionPeriodPayload
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz istek gövdesi"})
-		return
+	contentType := r.Header.Get("Content-Type")
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		r.Body = http.MaxBytesReader(w, r.Body, 3*1024*1024)
+		if err := r.ParseMultipartForm(3 * 1024 * 1024); err != nil {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "dosya boyutu en fazla 2 MB olabilir veya form geçersiz"})
+			return
+		}
+
+		payloadJSON := r.FormValue("payload")
+		if strings.TrimSpace(payloadJSON) == "" {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "fatura dağıtım verisi (payload) zorunludur"})
+			return
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &req); err != nil {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz istek gövdesi"})
+			return
+		}
+
+		file, fileHeader, err := r.FormFile("invoice")
+		if err == nil && file != nil {
+			defer file.Close()
+			if fileHeader.Size > service.MaxInvoiceFileSize {
+				respondJSON(w, http.StatusBadRequest, map[string]string{"error": service.ErrInvoiceFileTooLarge.Error()})
+				return
+			}
+			fileBytes, err := io.ReadAll(file)
+			if err != nil {
+				respondJSON(w, http.StatusBadRequest, map[string]string{"error": "dosya okunamadı"})
+				return
+			}
+			req.InvoiceFileName = &fileHeader.Filename
+			req.InvoiceFileData = fileBytes
+		}
+	} else {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "geçersiz istek gövdesi"})
+			return
+		}
 	}
 
 	period, readings, err := h.meterService.CreateConsumptionPeriod(r.Context(), siteID, claims.UserID, req)
@@ -1370,6 +1407,31 @@ func (h *AdminHandler) GetConsumptionPeriod(w http.ResponseWriter, r *http.Reque
 		"period":   period,
 		"readings": readings,
 	})
+}
+
+func (h *AdminHandler) GetConsumptionPeriodInvoice(w http.ResponseWriter, r *http.Request) {
+	siteID, err := h.getSiteID(r)
+	if err != nil {
+		respondJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		return
+	}
+
+	periodID := chi.URLParam(r, "id")
+	invoice, err := h.meterService.GetConsumptionPeriodInvoice(r.Context(), periodID, siteID)
+	if err != nil {
+		if errors.Is(err, domain.ErrPeriodNotFound) || errors.Is(err, repository.ErrInvoiceNotFound) || errors.Is(err, service.ErrInvoiceNotFound) {
+			respondJSON(w, http.StatusNotFound, map[string]string{"error": "fatura belgesi bulunamadı"})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", invoice.FileType)
+	w.Header().Set("Content-Length", strconv.Itoa(invoice.FileSize))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", invoice.FileName))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(invoice.FileData)
 }
 
 func (h *AdminHandler) DeleteConsumptionPeriod(w http.ResponseWriter, r *http.Request) {

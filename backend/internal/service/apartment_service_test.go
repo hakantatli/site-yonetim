@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/hakantatli/site-yonetim/internal/domain"
@@ -258,6 +259,36 @@ func TestApartmentService_UpdateResident(t *testing.T) {
 		}
 		if !pwdUpdated {
 			t.Fatalf("expected password update to be called")
+		}
+	})
+
+	t.Run("updating demo resident password returns ErrDemoAccountPasswordChange", func(t *testing.T) {
+		demoResident := &domain.User{
+			ID:       "demo-res",
+			SiteID:   &siteID,
+			FullName: "Can Arslan",
+			Phone:    "05423010001",
+			Role:     domain.RoleResident,
+			IsActive: true,
+		}
+		userRepo := &mockUserRepository{
+			getByIDFn: func(ctx context.Context, id string) (*domain.User, error) {
+				return demoResident, nil
+			},
+			updateUserDetailsFn: func(ctx context.Context, id string, fullName string, phone string, email *string) (*domain.User, error) {
+				return demoResident, nil
+			},
+		}
+
+		svc := NewApartmentService(&mockApartmentRepository{}, &mockSiteRepository{}, userRepo)
+		newPass := "NewSecretPassword123!"
+		_, err := svc.UpdateResident(ctx, siteID, "demo-res", domain.UpdateResidentRequest{
+			FullName: "Can Arslan",
+			Phone:    "05423010001",
+			Password: &newPass,
+		})
+		if !errors.Is(err, ErrDemoAccountPasswordChange) {
+			t.Fatalf("expected ErrDemoAccountPasswordChange, got: %v", err)
 		}
 	})
 

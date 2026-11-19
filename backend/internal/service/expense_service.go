@@ -22,7 +22,7 @@ var (
 	ErrInvalidExpenseDate          = errors.New("geçerli bir harcama tarihi girilmelidir (YYYY-AA-GG)")
 	ErrCategoryInactiveOrNotFound = errors.New("seçilen masraf kategorisi bulunamadı veya pasif durumda")
 	ErrInvoiceFileTooLarge         = errors.New("fatura dosyası en fazla 2 MB olabilir")
-	ErrInvalidInvoiceFileType     = errors.New("yalnızca PDF veya JPEG formatında fatura dosyası yüklenebilir")
+	ErrInvalidInvoiceFileType     = errors.New("yalnızca PDF, JPEG, PNG veya WEBP formatında fatura dosyası yüklenebilir")
 	ErrInvoiceNotFound            = errors.New("fatura belgesi bulunamadı")
 )
 
@@ -188,15 +188,23 @@ func validateInvoiceFile(fileName *string, data []byte) (string, error) {
 
 	isPDF := detected == "application/pdf" || (ext == ".pdf" && bytes.HasPrefix(data, []byte("%PDF-")))
 	isJPEG := detected == "image/jpeg" || ((ext == ".jpg" || ext == ".jpeg") && len(data) >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+	isPNG := detected == "image/png" || (ext == ".png" && len(data) >= 8 && bytes.Equal(data[:8], []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}))
+	isWEBP := detected == "image/webp" || (ext == ".webp" && len(data) >= 12 && bytes.Equal(data[:4], []byte("RIFF")) && bytes.Equal(data[8:12], []byte("WEBP")))
 
-	if !isPDF && !isJPEG {
+	if !isPDF && !isJPEG && !isPNG && !isWEBP {
 		return "", ErrInvalidInvoiceFileType
 	}
 
-	if isPDF {
+	switch {
+	case isPDF:
 		return "application/pdf", nil
+	case isPNG:
+		return "image/png", nil
+	case isWEBP:
+		return "image/webp", nil
+	default:
+		return "image/jpeg", nil
 	}
-	return "image/jpeg", nil
 }
 
 func (s *expenseService) ListExpenses(ctx context.Context, siteID string, filter domain.ExpenseFilter) ([]domain.Expense, *domain.ExpenseStats, error) {

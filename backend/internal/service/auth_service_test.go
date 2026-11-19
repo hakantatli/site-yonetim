@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -161,6 +162,43 @@ func TestAuthService_ChangePassword(t *testing.T) {
 		})
 		if err != ErrPasswordTooShort {
 			t.Fatalf("expected ErrPasswordTooShort, got %v", err)
+		}
+	})
+
+	t.Run("fails when user is a demo account", func(t *testing.T) {
+		demoAdmin := &domain.User{
+			ID:                 "demo-admin",
+			Phone:              "05551234567",
+			IsActive:           true,
+			MustChangePassword: false,
+		}
+		userRepo := &mockUserRepository{
+			getByIDFn: func(ctx context.Context, id string) (*domain.User, error) {
+				return demoAdmin, nil
+			},
+		}
+		svc := NewAuthService(cfg, userRepo, nil)
+		_, err := svc.ChangePassword(ctx, "demo-admin", domain.ChangePasswordRequest{
+			NewPassword: "AttemptedNewPassword123!",
+		})
+		if !errors.Is(err, ErrDemoAccountPasswordChange) {
+			t.Fatalf("expected ErrDemoAccountPasswordChange, got: %v", err)
+		}
+
+		demoResident := &domain.User{
+			ID:                 "demo-resident",
+			Phone:              "05423010001",
+			IsActive:           true,
+			MustChangePassword: false,
+		}
+		userRepo.getByIDFn = func(ctx context.Context, id string) (*domain.User, error) {
+			return demoResident, nil
+		}
+		_, err = svc.ChangePassword(ctx, "demo-resident", domain.ChangePasswordRequest{
+			NewPassword: "AttemptedNewPassword123!",
+		})
+		if !errors.Is(err, ErrDemoAccountPasswordChange) {
+			t.Fatalf("expected ErrDemoAccountPasswordChange for resident, got: %v", err)
 		}
 	})
 

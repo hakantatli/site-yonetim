@@ -63,6 +63,31 @@ func CleanPhone(value string) string {
 	return s
 }
 
+// DemoPhoneNumbers contains phone numbers allocated for simulation and showcase accounts.
+var DemoPhoneNumbers = map[string]bool{
+	"05551234567": true,
+	"05423010001": true,
+	"05423010002": true,
+	"05423010003": true,
+	"05423010004": true,
+	"05423010005": true,
+	"05321010001": true,
+	"05321010002": true,
+	"05321010003": true,
+	"05321010004": true,
+	"05321010005": true,
+	"05321010006": true,
+	"05321010007": true,
+	"05321010008": true,
+	"05321010009": true,
+}
+
+// IsDemoPhone returns true if the phone belongs to a seeded demo account.
+func IsDemoPhone(phone string) bool {
+	clean := CleanPhone(phone)
+	return DemoPhoneNumbers[clean]
+}
+
 func (r *LoginRequest) GetIdentifier() string {
 	raw := ""
 	if strings.TrimSpace(r.Login) != "" {

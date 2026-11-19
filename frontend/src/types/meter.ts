@@ -37,6 +37,10 @@ export interface ConsumptionPeriod {
   bill_no?: string | null;
   description?: string | null;
   reading_count: number;
+  invoice_id?: string | null;
+  invoice_file_name?: string | null;
+  invoice_file_size?: number | null;
+  invoice_file_type?: string | null;
   created_by?: string | null;
   created_at: string;
   updated_at: string;
@@ -95,10 +99,12 @@ export interface CreateConsumptionPeriodPayload {
   bill_no?: string;
   description?: string;
   readings: ReadingInput[];
+  invoice?: File | null;
 }
 
 export interface ResidentMeterHistoryItem {
   reading_id: string;
+  consumption_period_id: string;
   reading_date: string;
   previous_reading: number;
   current_reading: number;
@@ -118,4 +124,8 @@ export interface ResidentMeterHistoryItem {
   common_area_consumption: number;
   meter_type_name: string;
   meter_type_unit: string;
+  invoice_id?: string | null;
+  invoice_file_name?: string | null;
+  invoice_file_size?: number | null;
+  invoice_file_type?: string | null;
 }

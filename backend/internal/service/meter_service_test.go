@@ -27,7 +27,7 @@ func TestMeterService_CreateConsumptionPeriod_Reconciliation(t *testing.T) {
 		getMeterTypeByIDFn: func(ctx context.Context, id, siteID string) (*domain.MeterType, error) {
 			return &domain.MeterType{ID: id, SiteID: siteID, Name: "Su", Unit: "m³", IsActive: true}, nil
 		},
-		createConsumptionPeriodWithReadings: func(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading) (*domain.ConsumptionPeriod, []domain.MeterReading, error) {
+		createConsumptionPeriodWithReadings: func(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading, invoice *domain.ConsumptionPeriodInvoice) (*domain.ConsumptionPeriod, []domain.MeterReading, error) {
 			period.ID = "period-1"
 			return period, readings, nil
 		},
@@ -113,7 +113,7 @@ func TestMeterService_CreateConsumptionPeriod_Rounding(t *testing.T) {
 		getMeterTypeByIDFn: func(ctx context.Context, id, siteID string) (*domain.MeterType, error) {
 			return &domain.MeterType{ID: id, SiteID: siteID, Name: "Su", Unit: "m³", IsActive: true}, nil
 		},
-		createConsumptionPeriodWithReadings: func(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading) (*domain.ConsumptionPeriod, []domain.MeterReading, error) {
+		createConsumptionPeriodWithReadings: func(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading, invoice *domain.ConsumptionPeriodInvoice) (*domain.ConsumptionPeriod, []domain.MeterReading, error) {
 			period.ID = "period-2"
 			return period, readings, nil
 		},
@@ -216,6 +216,86 @@ func TestMeterService_CreateMeterType_Validation(t *testing.T) {
 		}
 		if mt.Unit != "m³" {
 			t.Fatalf("expected m³, got %s", mt.Unit)
+		}
+	})
+}
+
+func TestMeterService_CreateConsumptionPeriod_InvoiceUpload(t *testing.T) {
+	ctx := context.Background()
+
+	aptRepo := &mockApartmentRepository{
+		listApartmentsFn: func(ctx context.Context, siteID string) ([]domain.Apartment, error) {
+			return []domain.Apartment{{ID: "apt-1", SiteID: siteID, DoorNumber: "1"}}, nil
+		},
+	}
+
+	t.Run("accepts valid JPEG bill photo and passes invoice to repository", func(t *testing.T) {
+		var savedInvoice *domain.ConsumptionPeriodInvoice
+		meterRepo := &mockMeterRepository{
+			getMeterTypeByIDFn: func(ctx context.Context, id, siteID string) (*domain.MeterType, error) {
+				return &domain.MeterType{ID: id, SiteID: siteID, Name: "Su", Unit: "m³", IsActive: true}, nil
+			},
+			createConsumptionPeriodWithReadings: func(ctx context.Context, period *domain.ConsumptionPeriod, readings []domain.MeterReading, invoice *domain.ConsumptionPeriodInvoice) (*domain.ConsumptionPeriod, []domain.MeterReading, error) {
+				savedInvoice = invoice
+				period.ID = "period-img"
+				return period, readings, nil
+			},
+		}
+
+		svc := NewMeterService(meterRepo, aptRepo, &mockDebtRepository{})
+		jpegHeader := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F'}
+		fileName := "su-faturasi.jpg"
+
+		_, _, err := svc.CreateConsumptionPeriod(ctx, "site-1", "admin-1", domain.CreateConsumptionPeriodPayload{
+			MeterTypeID:       "mt-water",
+			Period:            "2026-11",
+			TotalBillAmount:   500,
+			MainMeterPrevious: 10,
+			MainMeterCurrent:  60,
+			Readings:          []domain.ReadingInput{{ApartmentID: "apt-1", PreviousReading: 5, CurrentReading: 25}},
+			InvoiceFileName:   &fileName,
+			InvoiceFileData:   jpegHeader,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if savedInvoice == nil || savedInvoice.FileType != "image/jpeg" || savedInvoice.FileName != fileName {
+			t.Fatalf("expected JPEG invoice metadata to be forwarded, got %+v", savedInvoice)
+		}
+	})
+
+	t.Run("rejects unsupported file type before persisting period or debts", func(t *testing.T) {
+		debtCalled := false
+		debtRepo := &mockDebtRepository{
+			createFn: func(ctx context.Context, debt *domain.Debt) (*domain.Debt, error) {
+				debtCalled = true
+				return debt, nil
+			},
+		}
+		meterRepo := &mockMeterRepository{
+			getMeterTypeByIDFn: func(ctx context.Context, id, siteID string) (*domain.MeterType, error) {
+				return &domain.MeterType{ID: id, SiteID: siteID, Name: "Su", Unit: "m³", IsActive: true}, nil
+			},
+		}
+
+		svc := NewMeterService(meterRepo, aptRepo, debtRepo)
+		fileName := "not-an-image.txt"
+
+		_, _, err := svc.CreateConsumptionPeriod(ctx, "site-1", "admin-1", domain.CreateConsumptionPeriodPayload{
+			MeterTypeID:       "mt-water",
+			Period:            "2026-11",
+			TotalBillAmount:   500,
+			MainMeterPrevious: 10,
+			MainMeterCurrent:  60,
+			Readings:          []domain.ReadingInput{{ApartmentID: "apt-1", PreviousReading: 5, CurrentReading: 25}},
+			InvoiceFileName:   &fileName,
+			InvoiceFileData:   []byte("plain text"),
+		})
+		if err != ErrInvalidInvoiceFileType {
+			t.Fatalf("expected ErrInvalidInvoiceFileType, got %v", err)
+		}
+		if debtCalled {
+			t.Fatalf("expected no debts to be created when invoice validation fails")
 		}
 	})
 }

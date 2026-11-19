@@ -52,9 +52,23 @@ type ConsumptionPeriod struct {
 	BillNo                     *string   `json:"bill_no,omitempty"`
 	Description                *string   `json:"description,omitempty"`
 	ReadingCount               int64     `json:"reading_count"`
+	InvoiceID                  *string   `json:"invoice_id,omitempty"`
+	InvoiceFileName            *string   `json:"invoice_file_name,omitempty"`
+	InvoiceFileSize            *int      `json:"invoice_file_size,omitempty"`
+	InvoiceFileType            *string   `json:"invoice_file_type,omitempty"`
 	CreatedBy                  *string   `json:"created_by,omitempty"`
 	CreatedAt                  time.Time `json:"created_at"`
 	UpdatedAt                  time.Time `json:"updated_at"`
+}
+
+type ConsumptionPeriodInvoice struct {
+	ID                  string    `json:"id"`
+	ConsumptionPeriodID string    `json:"consumption_period_id"`
+	FileName            string    `json:"file_name"`
+	FileType            string    `json:"file_type"`
+	FileSize            int       `json:"file_size"`
+	FileData            []byte    `json:"-"`
+	CreatedAt           time.Time `json:"created_at"`
 }
 
 type MeterReading struct {
@@ -110,10 +124,14 @@ type CreateConsumptionPeriodPayload struct {
 	BillNo            *string        `json:"bill_no,omitempty"`
 	Description       *string        `json:"description,omitempty"`
 	Readings          []ReadingInput `json:"readings"`
+	InvoiceFileName   *string        `json:"invoice_file_name,omitempty"`
+	InvoiceFileType   *string        `json:"invoice_file_type,omitempty"`
+	InvoiceFileData   []byte         `json:"-"`
 }
 
 type ResidentMeterHistoryItem struct {
 	ReadingID              string  `json:"reading_id"`
+	ConsumptionPeriodID    string  `json:"consumption_period_id"`
 	ReadingDate            string  `json:"reading_date"`
 	PreviousReading        float64 `json:"previous_reading"`
 	CurrentReading         float64 `json:"current_reading"`
@@ -132,4 +150,8 @@ type ResidentMeterHistoryItem struct {
 	CommonAreaConsumption  float64 `json:"common_area_consumption"`
 	MeterTypeName          string  `json:"meter_type_name"`
 	MeterTypeUnit          string  `json:"meter_type_unit"`
+	InvoiceID              *string `json:"invoice_id,omitempty"`
+	InvoiceFileName        *string `json:"invoice_file_name,omitempty"`
+	InvoiceFileSize        *int    `json:"invoice_file_size,omitempty"`
+	InvoiceFileType        *string `json:"invoice_file_type,omitempty"`
 }

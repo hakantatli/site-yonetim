@@ -390,6 +390,9 @@ func (s *apartmentService) UpdateResident(ctx context.Context, siteID string, re
 
 	// 5. Update password if provided
 	if req.Password != nil && strings.TrimSpace(*req.Password) != "" {
+		if domain.IsDemoPhone(user.Phone) {
+			return nil, ErrDemoAccountPasswordChange
+		}
 		hash, err := bcrypt.GenerateFromPassword([]byte(strings.TrimSpace(*req.Password)), bcrypt.DefaultCost)
 		if err != nil {
 			return nil, err
